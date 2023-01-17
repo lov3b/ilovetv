@@ -33,7 +33,6 @@ pub fn setup() -> String {
         print!("Are you sure? (Y/n) ");
         stdout.flush().unwrap();
         let mut yn = String::new();
-        yn = String::new();
         let _ = stdin.read_line(&mut yn);
 
         if yn.to_lowercase() != "n" {
