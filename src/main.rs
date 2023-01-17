@@ -39,7 +39,7 @@ fn main() {
         for (idx, m3u8_item) in search_result.as_ref().unwrap().iter().enumerate().rev() {
             println!("  {}: {}", idx + 1, m3u8_item);
         }
-        print!("Which one do you wish to stream? [q | s]: ");
+        print!("Which one do you wish to stream? [q | s | r]: ");
         stdout.flush().unwrap();
         buf = String::new();
         stdin.read_line(&mut buf).unwrap();
@@ -50,6 +50,18 @@ fn main() {
             break;
         } else if user_wish == "s" {
             search_result = None;
+            continue;
+        } else if user_wish == "r" {
+            println!("Refreshing local m3u8-file");
+            search_result = None;
+
+            // I know that this is also frowned upon, but it is perfectly safe right here,
+            // even though the borrowchecker complains
+            {
+                let ptr = &parser as *const Parser as *mut Parser;
+                let p = unsafe { &mut *ptr };
+                p.forcefully_update();
+            }
             continue;
         }
 

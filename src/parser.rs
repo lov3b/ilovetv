@@ -1,4 +1,3 @@
-use std::ops::Deref;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::{fs, process};
@@ -12,9 +11,36 @@ const MAX_TRIES: usize = 4;
 pub struct Parser {
     watched_name: Rc<PathBuf>,
     m3u8_items: Vec<M3u8>,
+    ilovetv_url: Rc<String>,
+    file_name: Rc<PathBuf>,
 }
 
 impl Parser {
+    pub fn new(file_name: String, iptv_url: String, watched_name: String) -> Self {
+        let project_dirs = ProjectDirs::from("com", "billenius", "iptvnator_rs").unwrap();
+        let cache = project_dirs.cache_dir();
+        let _ = fs::create_dir_all(&cache);
+
+        let file_name = Rc::new(cache.join(file_name));
+        let ilovetv_url = Rc::new(iptv_url);
+        let watched_name = Rc::new(cache.join(watched_name));
+
+        Self {
+            watched_name: watched_name.clone(),
+            m3u8_items: Self::get_parsed_content(&ilovetv_url, &file_name, &watched_name),
+            ilovetv_url,
+            file_name,
+        }
+    }
+
+    pub fn find(&self, name: &str) -> Vec<&M3u8> {
+        let name = name.to_uppercase();
+        self.m3u8_items
+            .iter()
+            .filter(|item| item.name.to_uppercase().contains(&name) || item.tvg_id.contains(&name))
+            .collect()
+    }
+
     fn should_update(file_name: &PathBuf) -> bool {
         fs::metadata(&file_name)
             .and_then(|metadata| {
@@ -36,34 +62,24 @@ impl Parser {
             )
     }
 
-    pub fn new(file_name: String, iptv_url: String, watched_name: String) -> Self {
-        let project_dirs = ProjectDirs::from("com", "billenius", "iptvnator_rs").unwrap();
-        let cache = project_dirs.cache_dir();
-        let _ = fs::create_dir_all(&cache);
+    pub fn forcefully_update(&mut self) {
+        let mut counter = 0;
+        let content = loop {
+            counter += 1;
+            let content = Self::download(&self.ilovetv_url).ok();
+            if counter > MAX_TRIES {
+                return;
+            } else if content.is_some() {
+                break content.unwrap();
+            }
+            println!("Retrying {}/{}", counter, MAX_TRIES);
+        };
 
-        let file_name = Rc::new(cache.join(file_name));
-        let iptv_url = Rc::new(iptv_url);
-        let watched_name = Rc::new(cache.join(watched_name));
-
-        Self {
-            watched_name: watched_name.clone(),
-            m3u8_items: Self::get_parsed_content(&iptv_url, &file_name, &watched_name),
-        }
-    }
-
-    pub fn find(&self, name: &str) -> Vec<&M3u8> {
-        let name = name.to_uppercase();
-        self.m3u8_items
-            .iter()
-            .filter(|item| item.name.to_uppercase().contains(&name) || item.tvg_id.contains(&name))
-            .collect()
+        let _ = fs::write(&*self.file_name, &content);
+        self.m3u8_items = Self::parse_m3u8(content, &self.watched_name.clone());
     }
 
     pub fn save_watched(&self) {
-        let project_dirs = ProjectDirs::from("com", "billenius", "iptvnator_rs").unwrap();
-        let cache_dir = project_dirs.cache_dir();
-        let watched_cache_file = cache_dir.join(&*self.watched_name);
-
         let watched_items = self
             .m3u8_items
             .iter()
@@ -71,9 +87,9 @@ impl Parser {
             .map(|item| item.link.clone())
             .collect::<Vec<String>>();
 
-        let _ = fs::create_dir_all(cache_dir);
+        let _ = fs::create_dir_all(&*self.watched_name.parent().unwrap());
 
-        match fs::write(watched_cache_file, watched_items.join("\n")) {
+        match fs::write(&*self.watched_name, watched_items.join("\n")) {
             Ok(_) => {
                 println!("Saved watched")
             }
@@ -84,6 +100,10 @@ impl Parser {
     }
 
     fn get_parsed_content(link: &String, file_name: &PathBuf, watched_name: &PathBuf) -> Vec<M3u8> {
+        Self::parse_m3u8(Self::get_stringcontent(link, file_name, 0), watched_name)
+    }
+
+    fn parse_m3u8(content: String, watched_name: &PathBuf) -> Vec<M3u8> {
         let saved_watches = fs::read_to_string(&watched_name);
         let saved_watches = if saved_watches.is_ok() {
             saved_watches.unwrap()
@@ -94,7 +114,7 @@ impl Parser {
         let watched: Vec<String> = saved_watches.lines().map(String::from).collect();
 
         let mut m3u8_items: Vec<M3u8> = Vec::new();
-        let interesting_lines: Vec<String> = Self::get_stringcontent(link, file_name, 0)
+        let interesting_lines: Vec<String> = content
             .replacen("#EXTM3U\n", "", 1)
             .lines()
             .map(str::trim)
@@ -158,13 +178,5 @@ impl Parser {
     fn download(link: &String) -> Result<String, reqwest::Error> {
         reqwest::blocking::get(link.clone())
             .and_then(|resp| Ok(resp.text().expect("Could not get m3u8 from server")))
-    }
-}
-
-impl Deref for Parser {
-    type Target = Vec<M3u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.m3u8_items
     }
 }
