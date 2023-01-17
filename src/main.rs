@@ -44,12 +44,16 @@ fn main() {
         buf = String::new();
         stdin.read_line(&mut buf).unwrap();
 
+        let user_wish = buf.trim();
         // If they want to quit, let them-
-        if buf.trim() == "q" {
+        if user_wish == "q" {
             break;
+        } else if user_wish == "s" {
+            search_result = None;
+            continue;
         }
 
-        let choosen = buf.trim().parse::<usize>();
+        let choosen = user_wish.parse::<usize>();
         match choosen {
             Ok(k) => {
                 let search_result = search_result.as_ref().unwrap().clone();

@@ -18,7 +18,7 @@ impl Display for M3u8 {
         } else {
             self.name.bold()
         };
-        f.write_fmt(format_args!("{}({})", colored_name, self.link))?;
+        f.write_fmt(format_args!("{} ({})", colored_name, self.link))?;
         Ok(())
     }
 }
