@@ -10,19 +10,10 @@ pub use m3u8::M3u8;
 pub use parser::Parser;
 mod config;
 
-use directories;
-
-#[test]
-pub fn aaaaaaaa() {
-    let a = directories::ProjectDirs::from("com", "billenius", "iptvnator_rs").unwrap();
-    let datadir = a.data_dir();
-    let configdir = a.config_dir();
-    println!("{:?}", datadir);
-    println!("{:?}", configdir);
-}
+use directories::ProjectDirs;
 
 pub fn setup() -> String {
-    let project_dirs = directories::ProjectDirs::from("com", "billenius", "iptvnator_rs").unwrap();
+    let project_dirs = ProjectDirs::from("com", "billenius", "iptvnator_rs").unwrap();
     let config_dir = project_dirs.config_dir();
     let ilovetv_config_file = config_dir.join("iptv_url.txt");
     if ilovetv_config_file.exists() {
