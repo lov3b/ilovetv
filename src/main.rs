@@ -4,8 +4,8 @@ use std::rc::Rc;
 
 use iptvnator_rs::{setup, M3u8, Parser};
 fn main() {
-    println!("Welcome to iptvnator_rs, the somewhat faster version and certainly harder to write iptvnator");
-    let p = Parser::new("iptv.m3u8".to_owned(), setup(), "watched.txt".to_owned());
+    println!("Welcome to iptvnator_rs, the port of my iptvprogram written in python, now in rust BLAZINGLY FAST\n");
+    let parser = Parser::new("iptv.m3u8".to_owned(), setup(), "watched.txt".to_owned());
 
     let stdin = io::stdin();
     let mut stdout = stdout().lock();
@@ -26,7 +26,7 @@ fn main() {
                 break;
             }
 
-            search_result = Some(Rc::new(p.find(&buf)));
+            search_result = Some(Rc::new(parser.find(&buf)));
 
             if search_result.as_ref().unwrap().len() == 0 {
                 println!("Nothing found");
@@ -63,7 +63,7 @@ fn main() {
         }
     }
 
-    p.save_watched();
+    parser.save_watched();
 }
 
 fn stream(m3u8item: &M3u8) {
