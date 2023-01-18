@@ -9,7 +9,7 @@ use std::{
 pub use m3u8::M3u8;
 pub use parser::Parser;
 mod config;
-
+mod downloader;
 use directories::ProjectDirs;
 
 pub fn setup() -> String {

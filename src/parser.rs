@@ -4,6 +4,7 @@ use std::{fs, process};
 
 use directories::ProjectDirs;
 
+use crate::downloader::download_with_progress;
 use crate::m3u8::M3u8;
 
 const MAX_TRIES: usize = 4;
@@ -16,7 +17,7 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(file_name: String, iptv_url: String, watched_name: String) -> Self {
+    pub async fn new(file_name: String, iptv_url: String, watched_name: String) -> Self {
         let project_dirs = ProjectDirs::from("com", "billenius", "iptvnator_rs").unwrap();
         let cache = project_dirs.cache_dir();
         let _ = fs::create_dir_all(&cache);
@@ -27,7 +28,7 @@ impl Parser {
 
         Self {
             watched_name: watched_name.clone(),
-            m3u8_items: Self::get_parsed_content(&ilovetv_url, &file_name, &watched_name),
+            m3u8_items: Self::get_parsed_content(&ilovetv_url, &file_name, &watched_name).await,
             ilovetv_url,
             file_name,
         }
@@ -62,11 +63,11 @@ impl Parser {
             )
     }
 
-    pub fn forcefully_update(&mut self) {
+    pub async fn forcefully_update(&mut self) {
         let mut counter = 0;
         let content = loop {
             counter += 1;
-            let content = Self::download(&self.ilovetv_url).ok();
+            let content = Self::download(&self.ilovetv_url).await.ok();
             if counter > MAX_TRIES {
                 return;
             } else if content.is_some() {
@@ -99,8 +100,17 @@ impl Parser {
         }
     }
 
-    fn get_parsed_content(link: &String, file_name: &PathBuf, watched_name: &PathBuf) -> Vec<M3u8> {
-        Self::parse_m3u8(Self::get_stringcontent(link, file_name, 0), watched_name)
+    async fn get_parsed_content(
+        link: &String,
+        file_name: &PathBuf,
+        watched_name: &PathBuf,
+    ) -> Vec<M3u8> {
+        Self::parse_m3u8(
+            Self::get_stringcontent(link, file_name)
+                .await
+                .expect("Failed to retrieve playlist"),
+            watched_name,
+        )
     }
 
     fn parse_m3u8(content: String, watched_name: &PathBuf) -> Vec<M3u8> {
@@ -149,24 +159,30 @@ impl Parser {
         m3u8_items
     }
 
-    fn get_stringcontent(link: &String, file_name: &PathBuf, tried: usize) -> String {
+    async fn get_stringcontent(link: &String, file_name: &PathBuf) -> Result<String, String> {
         if !Self::should_update(file_name) {
             let content = fs::read_to_string(&file_name);
             if content.is_ok() {
-                return content.unwrap();
+                return Ok(content.unwrap());
             }
         }
 
-        let content = Self::download(link);
-        if content.is_err() && tried < 4 {
-            println!("Retrying {}/{}", tried + 1, MAX_TRIES);
-            Self::get_stringcontent(link, file_name, tried + 1);
-        }
+        let mut counter: usize = 0;
+        let content = loop {
+            counter += 1;
+
+            if let Ok(content) = Self::download(link).await {
+                break Ok(content);
+            } else if counter > MAX_TRIES {
+                break Err("".to_owned());
+            }
+            println!("Retrying {}/{}", counter + 1, MAX_TRIES);
+        };
 
         match content {
             Ok(s) => {
                 let _ = fs::write(&file_name, s.as_bytes());
-                s
+                Ok(s)
             }
             Err(_) => {
                 println!("Couldn't get m3u8 file!");
@@ -175,8 +191,10 @@ impl Parser {
         }
     }
 
-    fn download(link: &String) -> Result<String, reqwest::Error> {
-        reqwest::blocking::get(link.clone())
-            .and_then(|resp| Ok(resp.text().expect("Could not get m3u8 from server")))
+    async fn download(link: &String) -> Result<String, String> {
+        Ok(download_with_progress(link, None)
+            .await?
+            .get_string()
+            .unwrap())
     }
 }

@@ -3,9 +3,10 @@ use std::process::Command;
 use std::rc::Rc;
 
 use iptvnator_rs::{setup, M3u8, Parser};
-fn main() {
+#[tokio::main]
+async fn main() {
     println!("Welcome to iptvnator_rs, the port of my iptvprogram written in python, now in rust BLAZINGLY FAST\n");
-    let parser = Parser::new("iptv.m3u8".to_owned(), setup(), "watched.txt".to_owned());
+    let parser = Parser::new("iptv.m3u8".to_owned(), setup(), "watched.txt".to_owned()).await;
 
     let stdin = io::stdin();
     let mut stdout = stdout().lock();
@@ -60,7 +61,7 @@ fn main() {
             {
                 let ptr = &parser as *const Parser as *mut Parser;
                 let p = unsafe { &mut *ptr };
-                p.forcefully_update();
+                p.forcefully_update().await;
             }
             continue;
         }
