@@ -2,7 +2,7 @@ mod m3u8;
 mod parser;
 use std::{
     fs,
-    io::{stdin, stdout, Write},
+    io::{stdin, stdout, Stdin, StdoutLock, Write},
     process,
 };
 
@@ -21,22 +21,14 @@ pub fn setup() -> String {
         return fs::read_to_string(&ilovetv_config_file).expect("Failed to read iptv_url");
     }
 
-    let mut stdout = stdout().lock();
-    let stdin = stdin();
+    let mut readline = Readline::new();
 
     println!("Hello, I would need an url to your iptv/m3u/m3u8 stream");
     let url = loop {
-        print!("enter url: ");
-        stdout.flush().unwrap();
-        let mut url = String::new();
-        let _ = stdin.read_line(&mut url);
+        let url = readline.input("enter url: ");
+        let yn = readline.input("Are you sure? (Y/n) ");
 
-        print!("Are you sure? (Y/n) ");
-        stdout.flush().unwrap();
-        let mut yn = String::new();
-        let _ = stdin.read_line(&mut yn);
-
-        if yn.to_lowercase() != "n" {
+        if yn.trim().to_lowercase() != "n" {
             break url.trim().to_string();
         }
     };
@@ -48,4 +40,26 @@ pub fn setup() -> String {
     }
 
     url
+}
+
+pub struct Readline<'a> {
+    stdout: StdoutLock<'a>,
+    stdin: Stdin,
+}
+
+impl<'a> Readline<'a> {
+    pub fn new() -> Self {
+        Self {
+            stdout: stdout().lock(),
+            stdin: stdin(),
+        }
+    }
+
+    pub fn input(&mut self, toprint: &str) -> String {
+        print!("{}", toprint);
+        self.stdout.flush().unwrap();
+        let mut buffer = String::new();
+        self.stdin.read_line(&mut buffer).unwrap();
+        buffer
+    }
 }

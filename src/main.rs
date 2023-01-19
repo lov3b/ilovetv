@@ -1,39 +1,32 @@
-use std::io::{self, stdout, Write};
+use std::io::{self, stdin, stdout, Stdin, StdoutLock, Write};
 use std::num::ParseIntError;
 use std::process::Command;
 use std::rc::Rc;
 
-use iptvnator_rs::{download_with_progress, setup, M3u8, Parser};
+use iptvnator_rs::{download_with_progress, setup, M3u8, Parser, Readline};
 
 #[tokio::main]
 async fn main() {
     println!("Welcome to iptvnator_rs, the port of my iptvprogram written in python, now in rust BLAZINGLY FAST\n");
     let parser = Parser::new("iptv.m3u8".to_owned(), setup(), "watched.txt".to_owned()).await;
 
-    let stdin = io::stdin();
-    let mut stdout = stdout().lock();
     let mut search_result: Option<Rc<Vec<&M3u8>>> = None;
+    let mut readline = Readline::new();
 
     loop {
-        let mut buf = String::new();
-
         // Dont't perform a search if user has just watched, instead present the previous search
         if search_result.is_none() {
-            print!("Search by name: ");
-            stdout.flush().unwrap();
-            stdin.read_line(&mut buf).unwrap();
-            buf = buf.trim().to_owned();
+            let search = readline.input("Search by name: ");
 
             // If they want to quit, let them-
-            if buf.trim() == "q" {
+            if search.trim() == "q" {
                 break;
             }
 
-            search_result = Some(Rc::new(parser.find(&buf)));
+            search_result = Some(Rc::new(parser.find(&search)));
 
             if search_result.as_ref().unwrap().len() == 0 {
                 println!("Nothing found");
-                stdout.flush().unwrap();
                 continue;
             }
         }
@@ -42,12 +35,10 @@ async fn main() {
         for (idx, m3u8_item) in search_result.as_ref().unwrap().iter().enumerate().rev() {
             println!("  {}: {}", idx + 1, m3u8_item);
         }
-        print!("Which one do you wish to stream? [ q/s/r/d ]: ");
-        stdout.flush().unwrap();
-        buf = String::new();
-        stdin.read_line(&mut buf).unwrap();
 
-        let user_wish = buf.trim();
+        let user_wish = readline.input("Which one do you wish to stream? [ q/s/r/d ]: ");
+        let user_wish = user_wish.trim();
+
         // If they want to quit, let them-
         if user_wish == "q" {
             break;
@@ -67,13 +58,9 @@ async fn main() {
             }
             continue;
         } else if user_wish == "d" {
-            print!("Download all or select in comma separated [A]: ");
-            stdout.flush().unwrap();
-
-            let mut selection = String::new();
-            stdin.read_line(&mut selection).unwrap();
-
+            let selection = readline.input("Download all or select in comma separated [A]: ");
             let selection = selection.trim();
+
             let to_download = loop {
                 break if selection.to_lowercase() == "a" {
                     println!("Downloading all");
