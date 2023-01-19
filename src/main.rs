@@ -2,11 +2,16 @@ use std::num::ParseIntError;
 use std::process::Command;
 use std::rc::Rc;
 
+use colored::Colorize;
 use iptvnator_rs::{download_with_progress, setup, M3u8, Parser, Readline};
 
 #[tokio::main]
 async fn main() {
     println!("Welcome to iptvnator_rs, the port of my iptvprogram written in python, now in rust BLAZINGLY FAST\n");
+    println!(
+        "There will be some options along the way \n {} is for refreshing your iptvfile.\n {} is to quit and save watched feeds\n {} is to download fields\n {} is to perform a new search",
+        "r".bold(),"q".bold(),"d".bold(),"s".bold()
+    );
     let parser = Parser::new("iptv.m3u8".to_owned(), setup(), "watched.txt".to_owned()).await;
 
     let mut search_result: Option<Rc<Vec<&M3u8>>> = None;
@@ -15,12 +20,16 @@ async fn main() {
     loop {
         // Dont't perform a search if user has just watched, instead present the previous search
         if search_result.is_none() {
-            let search = readline.input("Search by name: ");
+            let search = readline.input("Search by name [r | q]: ");
             let search = search.trim();
 
             // If they want to quit, let them-
             if search == "q" {
                 break;
+            } else if search == "r" {
+                search_result = None;
+                refresh(&parser).await;
+                continue;
             }
 
             search_result = Some(Rc::new(parser.find(search)));
@@ -48,14 +57,7 @@ async fn main() {
         } else if user_wish == "r" {
             println!("Refreshing local m3u8-file");
             search_result = None;
-
-            // I know that this is also frowned upon, but it is perfectly safe right here,
-            // even though the borrowchecker complains
-            {
-                let ptr = &parser as *const Parser as *mut Parser;
-                let p = unsafe { &mut *ptr };
-                p.forcefully_update().await;
-            }
+            refresh(&parser).await;
             continue;
         } else if user_wish == "d" {
             let selection = readline.input("Download all or select in comma separated [A]: ");
@@ -102,6 +104,15 @@ async fn main() {
     parser.save_watched();
 }
 
+/*
+ * I know that this is also frowned upon, but it is perfectly safe right here,
+ * even though the borrowchecker complains
+ */
+async fn refresh(parser: &Parser) {
+    let ptr = parser as *const Parser as *mut Parser;
+    let p = unsafe { &mut *ptr };
+    p.forcefully_update().await;
+}
 async fn download_m3u8(files_to_download: Rc<Vec<&M3u8>>) {
     for m3u8 in files_to_download.iter() {
         let file_ending_place = m3u8.link.rfind(".").unwrap();
