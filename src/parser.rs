@@ -35,10 +35,10 @@ impl Parser {
     }
 
     pub fn find(&self, name: &str) -> Vec<&M3u8> {
-        let name = name.to_uppercase();
+        let name = name.to_lowercase();
         self.m3u8_items
             .iter()
-            .filter(|item| item.name.to_uppercase().contains(&name) || item.tvg_id.contains(&name))
+            .filter(|item| item.name.to_lowercase().contains(&name) || item.tvg_id.contains(&name))
             .collect()
     }
 
