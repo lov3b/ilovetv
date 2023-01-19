@@ -17,13 +17,14 @@ async fn main() {
         // Dont't perform a search if user has just watched, instead present the previous search
         if search_result.is_none() {
             let search = readline.input("Search by name: ");
+            let search = search.trim();
 
             // If they want to quit, let them-
-            if search.trim() == "q" {
+            if search == "q" {
                 break;
             }
 
-            search_result = Some(Rc::new(parser.find(&search)));
+            search_result = Some(Rc::new(parser.find(search)));
 
             if search_result.as_ref().unwrap().len() == 0 {
                 println!("Nothing found");
