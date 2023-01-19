@@ -132,16 +132,6 @@ async fn download_m3u8(files_to_download: Rc<Vec<&M3u8>>) {
     }
 }
 
-#[tokio::test]
-async fn t() {
-    let link = "http://clientsportals.com:2095/series/fW6Mue7z/aTGX3xaM/21179.mkv";
-    let dot = link.rfind(".").unwrap();
-    let last = &link[dot..link.len()];
-
-    println!("{}", last);
-    println!("{}", last.len());
-}
-
 fn stream(m3u8item: &M3u8) {
     // Well I know that this is frowned upon, but it's honestly the most efficient way of doing this
     let ptr = m3u8item as *const M3u8;
