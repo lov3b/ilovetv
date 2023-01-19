@@ -3,11 +3,11 @@ use std::process::Command;
 use std::rc::Rc;
 
 use colored::Colorize;
-use iptvnator_rs::{download_with_progress, setup, M3u8, Parser, Readline};
+use iptvnator::{download_with_progress, setup, M3u8, Parser, Readline};
 
 #[tokio::main]
 async fn main() {
-    println!("Welcome to iptvnator_rs, the port of my iptvprogram written in python, now in rust BLAZINGLY FAST\n");
+    println!("Welcome to iptvnator, the port and extension of my  previous program pyiptvnator, now in rust BLAZINGLY FAST\n");
     println!(
         "There will be some options along the way \n {} is for refreshing your iptvfile.\n {} is to quit and save watched feeds\n {} is to download fields\n {} is to perform a new search",
         "r".bold(),"q".bold(),"d".bold(),"s".bold()

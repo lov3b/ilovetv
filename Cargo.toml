@@ -1,5 +1,5 @@
 [package]
-name = "iptvnator_rs"
+name = "iptvnator"
 version = "0.1.0"
 edition = "2021"
 

@@ -1,4 +1,4 @@
-# Iptvnator_rs
+# Iptvnator
 
 An iptvclient that is capable of parsing and reading m3uplaylists of essentially arbitrary sizes _blazingly fast_
 
