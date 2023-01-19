@@ -113,6 +113,7 @@ async fn refresh(parser: &Parser) {
     let p = unsafe { &mut *ptr };
     p.forcefully_update().await;
 }
+
 async fn download_m3u8(files_to_download: Rc<Vec<&M3u8>>) {
     for m3u8 in files_to_download.iter() {
         let file_ending_place = m3u8.link.rfind(".").unwrap();
@@ -130,10 +131,13 @@ async fn download_m3u8(files_to_download: Rc<Vec<&M3u8>>) {
     }
 }
 
+/**
+ * This function uses unsafe code to change an atribute, and while I know that this is not
+ * how youre supposed to do things, it's perfectly safe in this context and also the most efficient way.
+ * With other words, it's BLAZINGLY FAST
+ */
 fn stream(m3u8item: &M3u8) {
-    // Well I know that this is frowned upon, but it's honestly the most efficient way of doing this
-    let ptr = m3u8item as *const M3u8;
-    let ptr = ptr as *mut M3u8;
+    let ptr = m3u8item as *const M3u8 as *mut M3u8;
     let mut item = unsafe { &mut *ptr };
     item.watched = true;
 
