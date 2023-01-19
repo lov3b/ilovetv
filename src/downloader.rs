@@ -46,7 +46,7 @@ impl DualWriter {
             }
         })
     }
-    pub fn new(file_name: Option<String>) -> Result<Self, io::Error> {
+    pub fn new(file_name: Option<&str>) -> Result<Self, io::Error> {
         Ok(if let Some(file_name) = file_name {
             Self::File(File::create(&file_name)?)
         } else {
@@ -57,7 +57,7 @@ impl DualWriter {
 
 pub async fn download_with_progress(
     link: &str,
-    file_name: Option<String>,
+    file_name: Option<&str>,
 ) -> Result<DualWriter, String> {
     let mut dw = DualWriter::new(file_name).or(Err("Failed to create file".to_owned()))?;
 

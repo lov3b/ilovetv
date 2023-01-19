@@ -1,8 +1,10 @@
 use std::io::{self, stdout, Write};
+use std::num::ParseIntError;
 use std::process::Command;
 use std::rc::Rc;
 
-use iptvnator_rs::{setup, M3u8, Parser};
+use iptvnator_rs::{download_with_progress, setup, M3u8, Parser};
+
 #[tokio::main]
 async fn main() {
     println!("Welcome to iptvnator_rs, the port of my iptvprogram written in python, now in rust BLAZINGLY FAST\n");
@@ -40,7 +42,7 @@ async fn main() {
         for (idx, m3u8_item) in search_result.as_ref().unwrap().iter().enumerate().rev() {
             println!("  {}: {}", idx + 1, m3u8_item);
         }
-        print!("Which one do you wish to stream? [q | s | r]: ");
+        print!("Which one do you wish to stream? [ q/s/r/d ]: ");
         stdout.flush().unwrap();
         buf = String::new();
         stdin.read_line(&mut buf).unwrap();
@@ -64,6 +66,40 @@ async fn main() {
                 p.forcefully_update().await;
             }
             continue;
+        } else if user_wish == "d" {
+            print!("Download all or select in comma separated [A]: ");
+            stdout.flush().unwrap();
+
+            let mut selection = String::new();
+            stdin.read_line(&mut selection).unwrap();
+
+            let selection = selection.trim();
+            let to_download = loop {
+                break if selection.to_lowercase() == "a" {
+                    println!("Downloading all");
+                    search_result.as_ref().unwrap().clone()
+                } else {
+                    let selections = selection
+                        .split(",")
+                        .map(|x| x.trim().parse::<usize>())
+                        .collect::<Vec<Result<usize, ParseIntError>>>();
+
+                    for selection in selections.iter() {
+                        if selection.is_err() {
+                            println!("Not a valid number");
+                            continue;
+                        }
+                    }
+                    let selections = selections.into_iter().map(|x| x.unwrap() - 1);
+                    let mut final_selections = Vec::new();
+                    for selection in selections {
+                        final_selections.push((search_result.as_ref().unwrap())[selection]);
+                    }
+
+                    Rc::new(final_selections)
+                };
+            };
+            download_m3u8(to_download).await;
         }
 
         let choosen = user_wish.parse::<usize>();
@@ -77,6 +113,33 @@ async fn main() {
     }
 
     parser.save_watched();
+}
+
+async fn download_m3u8(files_to_download: Rc<Vec<&M3u8>>) {
+    for m3u8 in files_to_download.iter() {
+        let file_ending_place = m3u8.link.rfind(".").unwrap();
+        let potential_file_ending = &m3u8.link[file_ending_place..];
+        let file_ending = if potential_file_ending.len() > 6 {
+            ".mkv"
+        } else {
+            potential_file_ending
+        };
+        let file_name = format!("{}{}", m3u8.name, file_ending);
+        println!("Downloading {}", &file_name);
+        if let Err(e) = download_with_progress(&m3u8.link, Some(&file_name)).await {
+            eprintln!("Failed to download {}, {:?}", &file_name, e);
+        }
+    }
+}
+
+#[tokio::test]
+async fn t() {
+    let link = "http://clientsportals.com:2095/series/fW6Mue7z/aTGX3xaM/21179.mkv";
+    let dot = link.rfind(".").unwrap();
+    let last = &link[dot..link.len()];
+
+    println!("{}", last);
+    println!("{}", last.len());
 }
 
 fn stream(m3u8item: &M3u8) {

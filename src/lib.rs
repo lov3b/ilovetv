@@ -11,6 +11,7 @@ pub use parser::Parser;
 mod config;
 mod downloader;
 use directories::ProjectDirs;
+pub use downloader::download_with_progress;
 
 pub fn setup() -> String {
     let project_dirs = ProjectDirs::from("com", "billenius", "iptvnator_rs").unwrap();
