@@ -60,11 +60,12 @@ async fn main() {
             refresh(&parser).await;
             continue;
         } else if user_wish == "d" {
-            let selection = readline.input("Download all or select in comma separated [a | 1,2,3,4]: ");
+            let selection =
+                readline.input("Download all or select in comma separated [a | 1,2,3,4]: ");
             let selection = selection.trim();
 
             let to_download = loop {
-                break if selection.to_lowercase() == "a" {
+                break if selection == "a" {
                     println!("Downloading all");
                     search_result.as_ref().unwrap().clone()
                 } else {
