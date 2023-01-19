@@ -7,9 +7,13 @@ use iptvnator::{download_with_progress, setup, M3u8, Parser, Readline};
 
 #[tokio::main]
 async fn main() {
-    println!("Welcome to iptvnator, the port and extension of my  previous program pyiptvnator, now in rust BLAZINGLY FAST\n");
     println!(
-        "There will be some options along the way \n {} is for refreshing your iptvfile.\n {} is to quit and save watched feeds\n {} is to download fields\n {} is to perform a new search\n {} means all",
+        "Welcome to {}, a {} iptv client written in rust\n",
+        "iptvnator".bold(),
+        "BLAZINGLY FAST".italic()
+    );
+    println!(
+        "There will be some options along the way \n {} is to refresh the local iptvfile.\n {} is to quit and save watched fields\n {} is to download fields\n {} is to perform a new search\n {} is to select all",
         "r".bold(),"q".bold(),"d".bold(),"s".bold(),"a".bold()
     );
     let parser = Parser::new("iptv.m3u8".to_owned(), setup(), "watched.txt".to_owned()).await;
@@ -20,7 +24,7 @@ async fn main() {
     loop {
         // Dont't perform a search if user has just watched, instead present the previous search
         if search_result.is_none() {
-            let search = readline.input("Search by name [r | q]: ");
+            let search = readline.input("Search by name [r | q]: ").to_lowercase();
             let search = search.trim();
 
             // If they want to quit, let them-
@@ -45,7 +49,9 @@ async fn main() {
             println!("  {}: {}", idx + 1, m3u8_item);
         }
 
-        let user_wish = readline.input("Which one do you wish to stream? [ q/s/r/d ]: ");
+        let user_wish = readline
+            .input("Which one do you wish to stream? [ q/s/r/d ]: ")
+            .to_lowercase();
         let user_wish = user_wish.trim();
 
         // If they want to quit, let them-
@@ -60,8 +66,9 @@ async fn main() {
             refresh(&parser).await;
             continue;
         } else if user_wish == "d" {
-            let selection =
-                readline.input("Download all or select in comma separated [a | 1,2,3,4]: ");
+            let selection = readline
+                .input("Download all or select in comma separated [a | 1,2,3,4]: ")
+                .to_lowercase();
             let selection = selection.trim();
 
             let to_download = loop {
@@ -76,7 +83,7 @@ async fn main() {
 
                     for selection in selections.iter() {
                         if selection.is_err() {
-                            println!("Not a valid number");
+                            println!("Not a valid number or the option {}", "a".bold());
                             continue;
                         }
                     }

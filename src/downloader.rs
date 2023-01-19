@@ -71,11 +71,10 @@ pub async fn download_with_progress(
         .send()
         .await
         .or(Err("Failed to connect server".to_owned()))?;
-    let content_length = match resp.content_length() {
-        Some(k) => k,
-        None => {
-            panic!("Could not retrive content length from server. {:?}", &resp);
-        }
+    let content_length = if let Some(s) = resp.content_length() {
+        s
+    } else {
+        panic!("Could not retrive content length from server. {:?}", &resp);
     };
 
     let pb = ProgressBar::new(content_length);

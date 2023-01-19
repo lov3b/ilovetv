@@ -60,6 +60,6 @@ impl<'a> Readline<'a> {
         self.stdout.flush().unwrap();
         let mut buffer = String::new();
         self.stdin.read_line(&mut buffer).unwrap();
-        buffer.to_lowercase()
+        buffer
     }
 }
