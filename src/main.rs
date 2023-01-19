@@ -9,8 +9,8 @@ use iptvnator::{download_with_progress, setup, M3u8, Parser, Readline};
 async fn main() {
     println!("Welcome to iptvnator, the port and extension of my  previous program pyiptvnator, now in rust BLAZINGLY FAST\n");
     println!(
-        "There will be some options along the way \n {} is for refreshing your iptvfile.\n {} is to quit and save watched feeds\n {} is to download fields\n {} is to perform a new search",
-        "r".bold(),"q".bold(),"d".bold(),"s".bold()
+        "There will be some options along the way \n {} is for refreshing your iptvfile.\n {} is to quit and save watched feeds\n {} is to download fields\n {} is to perform a new search\n {} means all",
+        "r".bold(),"q".bold(),"d".bold(),"s".bold(),"a".bold()
     );
     let parser = Parser::new("iptv.m3u8".to_owned(), setup(), "watched.txt".to_owned()).await;
 
@@ -60,7 +60,7 @@ async fn main() {
             refresh(&parser).await;
             continue;
         } else if user_wish == "d" {
-            let selection = readline.input("Download all or select in comma separated [A]: ");
+            let selection = readline.input("Download all or select in comma separated [a]: ");
             let selection = selection.trim();
 
             let to_download = loop {
