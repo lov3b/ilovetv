@@ -71,7 +71,12 @@ pub async fn download_with_progress(
         .send()
         .await
         .or(Err("Failed to connect server".to_owned()))?;
-    let content_length = resp.content_length().unwrap();
+    let content_length = match resp.content_length() {
+        Some(k) => k,
+        None => {
+            panic!("Could not retrive content length from server. {:?}", &resp);
+        }
+    };
 
     let pb = ProgressBar::new(content_length);
     pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})").unwrap()
