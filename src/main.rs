@@ -60,7 +60,7 @@ async fn main() {
             refresh(&parser).await;
             continue;
         } else if user_wish == "d" {
-            let selection = readline.input("Download all or select in comma separated [a]: ");
+            let selection = readline.input("Download all or select in comma separated [a | 1,2,3,4]: ");
             let selection = selection.trim();
 
             let to_download = loop {
