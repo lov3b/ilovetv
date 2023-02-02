@@ -13,18 +13,20 @@ async fn main() {
         "BLAZINGLY FAST".italic()
     );
     println!(
-        "There will be some options along the way \n {} is to refresh the local iptvfile.\n {} is to quit and save watched fields\n {} is to download fields\n {} is to perform a new search\n {} is to select all",
-        "r".bold(),"q".bold(),"d".bold(),"s".bold(),"a".bold()
+        "There will be some options along the way \n {} is to refresh the local iptvfile.\n {} is to quit and save watched fields\n {} is to download fields\n {} is to perform a new search\n {} is to select all\n {} is to toggtle fullscreen for mpv",
+        "r".bold(),"q".bold(),"d".bold(),"s".bold(),"a".bold(), "f".bold()
     );
+
     let parser = Parser::new("iptv.m3u8".to_owned(), setup(), "watched.txt".to_owned()).await;
 
+    let mut mpv_fs = false;
     let mut search_result: Option<Rc<Vec<&M3u8>>> = None;
     let mut readline = Readline::new();
 
     loop {
         // Dont't perform a search if user has just watched, instead present the previous search
         if search_result.is_none() {
-            let search = readline.input("Search by name [r | q]: ").to_lowercase();
+            let search = readline.input("Search by name [ r/q/f ]: ").to_lowercase();
             let search = search.trim();
 
             // If they want to quit, let them-
@@ -33,6 +35,13 @@ async fn main() {
             } else if search == "r" {
                 search_result = None;
                 refresh(&parser).await;
+                continue;
+            } else if search == "f" {
+                mpv_fs = !mpv_fs;
+                println!(
+                    "Toggled mpv to {}launch in fullscreen",
+                    if mpv_fs { "" } else { "not " }
+                );
                 continue;
             }
 
@@ -103,7 +112,7 @@ async fn main() {
         match choosen {
             Ok(k) => {
                 let search_result = search_result.as_ref().unwrap().clone();
-                stream(&(search_result[k - 1]))
+                stream(&(search_result[k - 1]), mpv_fs)
             }
             Err(e) => println!("Have to be a valid number! {:?}", e),
         }
@@ -144,13 +153,17 @@ async fn download_m3u8(files_to_download: Rc<Vec<&M3u8>>) {
  * how youre supposed to do things, it's perfectly safe in this context and also the most efficient way.
  * With other words, it's BLAZINGLY FAST
  */
-fn stream(m3u8item: &M3u8) {
+fn stream(m3u8item: &M3u8, launch_in_fullscreen: bool) {
     let ptr = m3u8item as *const M3u8 as *mut M3u8;
     let mut item = unsafe { &mut *ptr };
     item.watched = true;
+    let mut args: Vec<&str> = vec![&m3u8item.link];
+    if launch_in_fullscreen {
+        args.push("--fs");
+    }
 
     Command::new("mpv")
-        .arg(&m3u8item.link)
+        .args(args)
         .output()
         .expect("Could not listen for output");
 }
