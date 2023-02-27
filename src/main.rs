@@ -29,22 +29,27 @@ async fn main() {
             let search = readline.input("Search by name [ r/q/f ]: ").to_lowercase();
             let search = search.trim();
 
-            // If they want to quit, let them-
-            if search == "q" {
-                break;
-            } else if search == "r" {
-                search_result = None;
-                refresh(&parser).await;
-                continue;
-            } else if search == "f" {
-                mpv_fs = !mpv_fs;
-                println!(
-                    "Toggled mpv to {}launch in fullscreen",
-                    if mpv_fs { "" } else { "not " }
-                );
-                continue;
+            // Special commands
+            match search {
+                // Quit
+                "q" => break,
+                // Refresh playlist
+                "r" => {
+                    search_result = None;
+                    refresh(&parser).await;
+                    continue;
+                }
+                // Toggle fullscreen for mpv
+                "f" => {
+                    mpv_fs = !mpv_fs;
+                    println!(
+                        "Toggled mpv to {}launch in fullscreen",
+                        if mpv_fs { "" } else { "not " }
+                    );
+                    continue;
+                }
+                _ => {}
             }
-
             search_result = Some(Rc::new(parser.find(search)));
 
             if search_result.as_ref().unwrap().len() == 0 {
@@ -64,61 +69,68 @@ async fn main() {
         let user_wish = user_wish.trim();
 
         // If they want to quit, let them-
-        if user_wish == "q" {
-            break;
-        } else if user_wish == "s" {
-            search_result = None;
-            continue;
-        } else if user_wish == "r" {
-            println!("Refreshing local m3u8-file");
-            search_result = None;
-            refresh(&parser).await;
-            continue;
-        } else if user_wish == "d" {
-            let selection = readline
-                .input("Download all or select in comma separated [a | 1,2,3,4]: ")
-                .to_lowercase();
-            let selection = selection.trim();
+        match user_wish {
+            // Quit
+            "q" => break,
+            // Go inte search-mode
+            "s" => {
+                search_result = None;
+                continue;
+            }
+            // Refresh playlist
+            "r" => {
+                println!("Refreshing local m3u8-file");
+                search_result = None;
+                refresh(&parser).await;
+                continue;
+            }
+            // Downloadmode
+            "d" => {
+                let selection = readline
+                    .input("Download all or select in comma separated [a | 1,2,3,4]: ")
+                    .to_lowercase();
+                let selection = selection.trim();
 
-            let to_download = loop {
-                break if selection == "a" {
-                    println!("Downloading all");
-                    search_result.as_ref().unwrap().clone()
-                } else {
-                    let selections = selection
-                        .split(",")
-                        .map(|x| x.trim().parse::<usize>())
-                        .collect::<Vec<Result<usize, ParseIntError>>>();
+                let to_download = loop {
+                    break if selection == "a" {
+                        println!("Downloading all");
+                        search_result.as_ref().unwrap().clone()
+                    } else {
+                        let selections = selection
+                            .split(",")
+                            .map(|x| x.trim().parse::<usize>())
+                            .collect::<Vec<Result<usize, ParseIntError>>>();
 
-                    for selection in selections.iter() {
-                        if selection.is_err() {
-                            println!("Not a valid number or the option {}", "a".bold());
-                            continue;
+                        for selection in selections.iter() {
+                            if selection.is_err() {
+                                println!("Not a valid number or the option {}", "a".bold());
+                                continue;
+                            }
                         }
-                    }
-                    let selections = selections.into_iter().map(|x| x.unwrap() - 1);
-                    let mut final_selections = Vec::new();
-                    for selection in selections {
-                        final_selections.push((search_result.as_ref().unwrap())[selection]);
-                    }
+                        let selections = selections.into_iter().map(|x| x.unwrap() - 1);
+                        let mut final_selections = Vec::new();
+                        for selection in selections {
+                            final_selections.push((search_result.as_ref().unwrap())[selection]);
+                        }
 
-                    Rc::new(final_selections)
+                        Rc::new(final_selections)
+                    };
                 };
-            };
-            download_m3u8(to_download).await;
+                download_m3u8(to_download).await;
+            }
+            _ => {}
         }
 
         let choosen = user_wish.parse::<usize>();
         match choosen {
             Ok(k) => {
                 let search_result = search_result.as_ref().unwrap().clone();
-                stream(&(search_result[k - 1]), mpv_fs)
+                stream(&(search_result[k - 1]), mpv_fs);
+                parser.save_watched();
             }
             Err(e) => println!("Have to be a valid number! {:?}", e),
         }
     }
-
-    parser.save_watched();
 }
 
 /*

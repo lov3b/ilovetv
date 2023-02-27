@@ -9,6 +9,5 @@ You will need to install mpv, and have it in your path, otherwise it wont work
 
 ## Left to do
 
-- Implement the ctrlc handler so that the program saves watched links before exiting.
 - Create a GUI
   - Would be nice to bundle mpv in some form
