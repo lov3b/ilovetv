@@ -90,13 +90,8 @@ impl Parser {
 
         let _ = fs::create_dir_all(&*self.watched_name.parent().unwrap());
 
-        match fs::write(&*self.watched_name, watched_items.join("\n")) {
-            Ok(_) => {
-                println!("Saved watched")
-            }
-            Err(e) => {
-                eprintln!("Failed to write downloaded m3u8file {:?}", e);
-            }
+        if let Err(e) = fs::write(&*self.watched_name, watched_items.join("\n")) {
+            eprintln!("Failed to write watched links {:?}", e);
         }
     }
 
