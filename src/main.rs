@@ -64,7 +64,7 @@ async fn main() {
         }
 
         let user_wish = readline
-            .input("Which one do you wish to stream? [ q/s/r/d ]: ")
+            .input("Which one do you wish to stream? [ q/f/s/r/d ]: ")
             .to_lowercase();
         let user_wish = user_wish.trim();
 
@@ -84,38 +84,18 @@ async fn main() {
                 refresh(&parser).await;
                 continue;
             }
+            "f" => {
+                mpv_fs = !mpv_fs;
+                println!(
+                    "Toggled mpv to {}launch in fullscreen",
+                    if mpv_fs { "" } else { "not " }
+                );
+                continue;
+            }
             // Downloadmode
             "d" => {
-                let selection = readline
-                    .input("Download all or select in comma separated [a | 1,2,3,4]: ")
-                    .to_lowercase();
-                let selection = selection.trim();
-
-                let to_download = loop {
-                    break if selection == "a" {
-                        println!("Downloading all");
-                        search_result.as_ref().unwrap().clone()
-                    } else {
-                        let selections = selection
-                            .split(",")
-                            .map(|x| x.trim().parse::<usize>())
-                            .collect::<Vec<Result<usize, ParseIntError>>>();
-
-                        for selection in selections.iter() {
-                            if selection.is_err() {
-                                println!("Not a valid number or the option {}", "a".bold());
-                                continue;
-                            }
-                        }
-                        let selections = selections.into_iter().map(|x| x.unwrap() - 1);
-                        let mut final_selections = Vec::new();
-                        for selection in selections {
-                            final_selections.push((search_result.as_ref().unwrap())[selection]);
-                        }
-
-                        Rc::new(final_selections)
-                    };
-                };
+                let to_download =
+                    ask_which_to_download(&mut readline, search_result.as_ref().unwrap().clone());
                 download_m3u8(to_download).await;
             }
             _ => {}
@@ -131,6 +111,48 @@ async fn main() {
             Err(e) => println!("Have to be a valid number! {:?}", e),
         }
     }
+}
+
+fn ask_which_to_download<'a>(
+    readline: &mut Readline,
+    search_result: Rc<Vec<&'a M3u8>>,
+) -> Rc<Vec<&'a M3u8>> {
+    let selections = loop {
+        // Ask for userinput
+        let selection = readline
+            .input("Download all or select in comma separated [a | 1,2,3,4]: ")
+            .to_lowercase();
+        let selection = selection.trim();
+
+        // Download all
+        if selection == "a" {
+            println!("Downloading all");
+            return search_result.clone();
+        }
+
+        // Convert to numbers
+        let selections = selection
+            .split(",")
+            .map(|x| x.trim().parse::<usize>())
+            .collect::<Vec<Result<usize, ParseIntError>>>();
+
+        // Ask again if any number wasn't a valid number
+        let wrong_input = selections.iter().any(|x| x.is_err());
+        if wrong_input {
+            println!("Invalid input. Has to be either {}, a number or a sequence of numbers separated by commas","a".bold());
+            continue;
+        }
+
+        break selections;
+    };
+
+    Rc::new(
+        selections
+            .into_iter()
+            .map(|x| x.unwrap() - 1) // Since all numbers are valid, remap them
+            .map(|x| search_result[x]) // We don't want the numbers, but the &M3u8 in those positions
+            .collect(),
+    )
 }
 
 /*
