@@ -63,3 +63,13 @@ impl<'a> Readline<'a> {
         buffer
     }
 }
+
+/**
+ * I know that this isn't considered true rusty code, but the places it's used in is
+ * safe. For this I'll leave the funciton as unsafe, so to better see it's uses. 
+ * This solution makes the uses BLAZINGLY FAST which moreover is the most rusty you can get.
+ */
+pub unsafe fn get_mut_ref<T>(reference: &T) -> &mut T {
+    let ptr = reference as *const T as *mut T;
+    &mut *ptr
+}

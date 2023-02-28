@@ -3,7 +3,7 @@ use std::process::Command;
 use std::rc::Rc;
 
 use colored::Colorize;
-use iptvnator::{download_with_progress, setup, M3u8, Parser, Readline};
+use iptvnator::{download_with_progress, get_mut_ref, setup, M3u8, Parser, Readline};
 
 #[tokio::main]
 async fn main() {
@@ -52,7 +52,7 @@ async fn main() {
             }
             search_result = Some(Rc::new(parser.find(search)));
 
-            if search_result.as_ref().unwrap().len() == 0 {
+            if search_result.as_ref().unwrap().is_empty() {
                 println!("Nothing found");
                 continue;
             }
@@ -95,8 +95,8 @@ async fn main() {
             // Downloadmode
             "d" => {
                 let to_download =
-                    ask_which_to_download(&mut readline, search_result.as_ref().unwrap().clone());
-                download_m3u8(to_download).await;
+                    ask_which_to_download(&mut readline, &search_result.as_ref().unwrap());
+                download_m3u8(&to_download).await;
             }
             _ => {}
         }
@@ -104,8 +104,8 @@ async fn main() {
         let choosen = user_wish.parse::<usize>();
         match choosen {
             Ok(k) => {
-                let search_result = search_result.as_ref().unwrap().clone();
-                stream(&(search_result[k - 1]), mpv_fs);
+                let search_result = search_result.as_ref().unwrap();
+                stream(search_result[k - 1], mpv_fs);
                 parser.save_watched();
             }
             Err(e) => println!("Have to be a valid number! {:?}", e),
@@ -115,7 +115,7 @@ async fn main() {
 
 fn ask_which_to_download<'a>(
     readline: &mut Readline,
-    search_result: Rc<Vec<&'a M3u8>>,
+    search_result: &Rc<Vec<&'a M3u8>>,
 ) -> Rc<Vec<&'a M3u8>> {
     let selections = loop {
         // Ask for userinput
@@ -155,17 +155,7 @@ fn ask_which_to_download<'a>(
     )
 }
 
-/*
- * I know that this is also frowned upon, but it is perfectly safe right here,
- * even though the borrowchecker complains
- */
-async fn refresh(parser: &Parser) {
-    let ptr = parser as *const Parser as *mut Parser;
-    let p = unsafe { &mut *ptr };
-    p.forcefully_update().await;
-}
-
-async fn download_m3u8(files_to_download: Rc<Vec<&M3u8>>) {
+async fn download_m3u8(files_to_download: &Vec<&M3u8>) {
     for m3u8 in files_to_download.iter() {
         let file_ending_place = m3u8.link.rfind(".").unwrap();
         let potential_file_ending = &m3u8.link[file_ending_place..];
@@ -183,14 +173,13 @@ async fn download_m3u8(files_to_download: Rc<Vec<&M3u8>>) {
 }
 
 /**
- * This function uses unsafe code to change an atribute, and while I know that this is not
- * how youre supposed to do things, it's perfectly safe in this context and also the most efficient way.
+ * I know that this is not how youre supposed to do things, but it's perfectly safe
+ * in this context and also the most efficient way.
  * With other words, it's BLAZINGLY FAST
  */
 fn stream(m3u8item: &M3u8, launch_in_fullscreen: bool) {
-    let ptr = m3u8item as *const M3u8 as *mut M3u8;
-    let mut item = unsafe { &mut *ptr };
-    item.watched = true;
+    let mut m3u8item = unsafe { get_mut_ref(m3u8item) };
+    m3u8item.watched = true;
     let mut args: Vec<&str> = vec![&m3u8item.link];
     if launch_in_fullscreen {
         args.push("--fs");
@@ -200,4 +189,12 @@ fn stream(m3u8item: &M3u8, launch_in_fullscreen: bool) {
         .args(args)
         .output()
         .expect("Could not listen for output");
+}
+
+/*
+ * I know that this is also frowned upon, but it is perfectly safe right here,
+ * even though the borrowchecker complains
+ */
+async fn refresh(parser: &Parser) {
+    unsafe { get_mut_ref(parser) }.forcefully_update().await;
 }

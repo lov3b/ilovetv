@@ -10,6 +10,8 @@ use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use reqwest::{self, Client};
 use std::cmp;
 
+use crate::get_mut_ref;
+
 pub enum DualWriter {
     File(File),
     Buffer(Vec<u8>),
@@ -38,14 +40,14 @@ impl DualWriter {
                 let mut buf = String::new();
 
                 // Well this is safe since I consume the file anyways
-                let ptr = &file as *const File as *mut File;
-                let file = unsafe { &mut *ptr };
+                let file = unsafe { get_mut_ref(&file) };
                 file.read_to_string(&mut buf)
                     .or(Err("Failed to read file".to_owned()))?;
                 buf
             }
         })
     }
+
     pub fn new(file_name: Option<&str>) -> Result<Self, io::Error> {
         Ok(if let Some(file_name) = file_name {
             Self::File(File::create(&file_name)?)
@@ -59,7 +61,7 @@ pub async fn download_with_progress(
     link: &str,
     file_name: Option<&str>,
 ) -> Result<DualWriter, String> {
-    let mut dw = DualWriter::new(file_name).or(Err("Failed to create file".to_owned()))?;
+    let mut dual_writer = DualWriter::new(file_name).or(Err("Failed to create file".to_owned()))?;
 
     let client = Client::builder()
         .gzip(true)
@@ -71,14 +73,14 @@ pub async fn download_with_progress(
         .send()
         .await
         .or(Err("Failed to connect server".to_owned()))?;
-    let content_length = if let Some(s) = resp.content_length() {
-        s
+    let content_length = if let Some(got_content_length) = resp.content_length() {
+        got_content_length
     } else {
         panic!("Could not retrive content length from server. {:?}", &resp);
     };
 
-    let pb = ProgressBar::new(content_length);
-    pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})").unwrap()
+    let progress_bar = ProgressBar::new(content_length);
+    progress_bar.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})").unwrap()
         .with_key("eta", |state: &ProgressState, w: &mut dyn fmt::Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
         .progress_chars("#>-"));
 
@@ -88,11 +90,12 @@ pub async fn download_with_progress(
     while let Some(item) = stream.next().await {
         let bytes = item.unwrap();
         downloaded = cmp::min(downloaded + (bytes.len() as u64), content_length);
-        dw.write(bytes)
+        dual_writer
+            .write(bytes)
             .or(Err("Failed to write to file".to_owned()))?;
 
-        pb.set_position(downloaded);
+        progress_bar.set_position(downloaded);
     }
 
-    Ok(dw)
+    Ok(dual_writer)
 }
