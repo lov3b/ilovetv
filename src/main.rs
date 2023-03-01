@@ -13,8 +13,8 @@ async fn main() {
         "BLAZINGLY FAST".italic()
     );
     println!(
-        "There will be some options along the way \n {} is to refresh the local iptvfile.\n {} is to quit and save watched fields\n {} is to download fields\n {} is to perform a new search\n {} is to select all\n {} is to toggtle fullscreen for mpv",
-        "r".bold(),"q".bold(),"d".bold(),"s".bold(),"a".bold(), "f".bold()
+        "There will be some options along the way \n {} is to refresh the local iptvfile.\n {} is to quit and save watched fields\n {} is to download fields\n {} is to perform a new search\n {} is to select all\n {} is to toggtle fullscreen for mpv\n {} is to redo the last search (mainly for use in the last session)\n {} to forget the latest search",
+        "r".bold(),"q".bold(),"d".bold(),"s".bold(),"a".bold(), "f".bold(),"l".bold(),"c".bold()
     );
 
     let config = Rc::new(Configuration::new().expect("Failed to write to configfile"));
@@ -28,8 +28,10 @@ async fn main() {
     loop {
         // Dont't perform a search if user has just watched, instead present the previous search
         if search_result.is_none() {
-            let search = readline.input("Search by name [ r/q/f ]: ").to_lowercase();
-            let search = search.trim();
+            let search = readline
+                .input("Search by name [ r/q/f/l/c ]: ")
+                .to_lowercase();
+            let mut search = search.trim();
 
             // Special commands
             match search {
@@ -50,14 +52,28 @@ async fn main() {
                     );
                     continue;
                 }
+                "l" => {
+                    search = if let Some(s) = config.last_search.as_ref() {
+                        s
+                    } else {
+                        println!("There is no search saved from earlier");
+                        continue;
+                    };
+                }
+                "c" => {
+                    config.update_last_search_ugly(None);
+                    continue;
+                }
                 _ => {}
             }
             search_result = Some(Rc::new(parser.find(search)));
 
             if search_result.as_ref().unwrap().is_empty() {
                 println!("Nothing found");
+                search_result = None;
                 continue;
             }
+            config.update_last_search_ugly(Some(search.to_owned()));
         }
 
         // Let them choose which one to stream
