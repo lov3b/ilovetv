@@ -9,7 +9,7 @@ use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-use crate::{download_with_progress, Readline};
+use crate::{download_with_progress, get_mut_ref, Readline};
 
 const JSON_CONFIG_FILENAME: &'static str = "iptvnator_config.json";
 const APP_IDENTIFIER: [&'static str; 3] = ["com", "billenius", "iptvnator"];
@@ -58,6 +58,11 @@ impl Conf {
         Ok(conf)
     }
 
+    fn write_configfile(&self, path: &Path) -> Result<(), io::Error> {
+        fs::write(path, serde_json::to_string(&self)?)?;
+        Ok(())
+    }
+
     fn user_setup() -> String {
         let mut readline = Readline::new();
 
@@ -78,6 +83,7 @@ pub struct Configuration {
     pub playlist_path: PathBuf,
     pub seen_links_path: PathBuf,
     pub seen_links: Vec<String>,
+    config_file_path: PathBuf,
 }
 
 impl Configuration {
@@ -86,11 +92,14 @@ impl Configuration {
             ProjectDirs::from(APP_IDENTIFIER[0], APP_IDENTIFIER[1], APP_IDENTIFIER[2]).unwrap();
         let config_dir = project_dirs.config_dir();
         let _ = fs::create_dir_all(config_dir);
-        let config_file = config_dir.join(JSON_CONFIG_FILENAME);
+        let config_file_path = config_dir.join(JSON_CONFIG_FILENAME).to_path_buf();
 
-        let configuration = Conf::new(&config_file)?;
+        let configuration = Conf::new(&config_file_path)?;
 
-        fs::write(config_file, serde_json::to_string(&configuration).unwrap())?;
+        fs::write(
+            &config_file_path,
+            serde_json::to_string(&configuration).unwrap(),
+        )?;
 
         // Setup dirs for playlist
         let cache_dir = project_dirs.cache_dir().to_path_buf();
@@ -105,7 +114,16 @@ impl Configuration {
             playlist_path,
             seen_links,
             seen_links_path,
+            config_file_path,
         })
+    }
+
+    pub fn update_last_search_ugly(&self, last_search: Option<String>) {
+        unsafe { get_mut_ref(&self.conf).last_search = last_search }
+
+        if let Err(e) = self.write_configfile(&self.config_file_path) {
+            println!("Failed to write to configfile, {:?}", e);
+        }
     }
 
     fn get_watched(path: &Path) -> Option<Vec<String>> {
