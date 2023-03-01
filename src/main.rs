@@ -3,7 +3,7 @@ use std::process::Command;
 use std::rc::Rc;
 
 use colored::Colorize;
-use iptvnator::{download_with_progress, get_mut_ref, setup, M3u8, Parser, Readline};
+use iptvnator::{download_with_progress, get_mut_ref, Configuration, M3u8, Parser, Readline};
 
 #[tokio::main]
 async fn main() {
@@ -17,7 +17,9 @@ async fn main() {
         "r".bold(),"q".bold(),"d".bold(),"s".bold(),"a".bold(), "f".bold()
     );
 
-    let parser = Parser::new("iptv.m3u8".to_owned(), setup(), "watched.txt".to_owned()).await;
+    let config = Rc::new(Configuration::new().expect("Failed to write to configfile"));
+
+    let parser = Parser::new(config.clone()).await;
 
     let mut mpv_fs = false;
     let mut search_result: Option<Rc<Vec<&M3u8>>> = None;
