@@ -82,7 +82,7 @@ async fn main() {
         }
 
         let user_wish = readline
-            .input("Which one do you wish to stream? [ q/f/s/r/d ]: ")
+            .input("Which one do you wish to stream? [ q/f/s/r/c/d ]: ")
             .to_lowercase();
         let user_wish = user_wish.trim();
 
@@ -108,6 +108,10 @@ async fn main() {
                     "Toggled mpv to {}launch in fullscreen",
                     if mpv_fs { "" } else { "not " }
                 );
+                continue;
+            }
+            "c" => {
+                config.update_last_search_ugly(None);
                 continue;
             }
             // Downloadmode
