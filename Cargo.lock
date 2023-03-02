@@ -417,6 +417,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ilovetv"
+version = "1.0.0"
+dependencies = [
+ "bytes",
+ "colored",
+ "directories",
+ "futures-util",
+ "indicatif",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -453,21 +468,6 @@ name = "ipnet"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30e22bd8629359895450b59ea7a776c850561b96a3b1d31321c1949d9e6c9146"
-
-[[package]]
-name = "iptvnator"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "colored",
- "directories",
- "futures-util",
- "indicatif",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
-]
 
 [[package]]
 name = "itoa"

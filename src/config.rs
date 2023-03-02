@@ -11,9 +11,9 @@ use serde_json;
 
 use crate::{download_with_progress, get_mut_ref, Readline};
 
-const JSON_CONFIG_FILENAME: &'static str = "iptvnator_config.json";
-const APP_IDENTIFIER: [&'static str; 3] = ["com", "billenius", "iptvnator"];
-const STANDARD_PLAYLIST_FILENAME: &'static str = "ilovetv.m3u8";
+const JSON_CONFIG_FILENAME: &'static str = "config.json";
+const APP_IDENTIFIER: [&'static str; 3] = ["com", "billenius", "ilovetv"];
+const STANDARD_PLAYLIST_FILENAME: &'static str = "playlist.m3u8";
 const STANDARD_SEEN_LINKS_FILENAME: &'static str = "watched_links.json";
 const MAX_TRIES: u8 = 4;
 
