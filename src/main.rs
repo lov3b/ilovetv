@@ -3,7 +3,9 @@ use std::process::Command;
 use std::rc::Rc;
 
 use colored::Colorize;
-use ilovetv::{download_with_progress, get_mut_ref, Configuration, M3u8, Parser, Readline};
+use ilovetv::{
+    download_with_progress, get_mut_ref, Configuration, DataEntry, M3u8, Parser, Readline,
+};
 
 #[tokio::main]
 async fn main() {
@@ -125,9 +127,32 @@ async fn main() {
             }
             // Downloadmode
             "d" => {
-                let to_download =
+                let download_selections =
                     ask_which_to_download(&mut readline, &search_result.as_ref().unwrap());
-                download_m3u8(&to_download).await;
+
+                for to_download in download_selections.iter() {
+                    download_m3u8(to_download, None).await;
+                }
+            }
+            // Save to offlinemode
+            "o" => {
+                let download_selections =
+                    ask_which_to_download(&mut readline, &search_result.as_ref().unwrap());
+
+                for to_download in download_selections.iter() {
+                    let path = config.data_dir.join(&to_download.name);
+                    let path = path.to_string_lossy().to_string();
+                    download_m3u8(to_download, Some(&path)).await;
+                    let data_entry = DataEntry::new((*to_download).clone(), path);
+                    config.push_datafile_ugly(data_entry);
+                }
+
+                if let Err(e) = config.write_datafile() {
+                    println!(
+                        "Failed to information about downloaded entries for offline use {:?}",
+                        e
+                    )
+                }
             }
             _ => {}
         }
@@ -186,20 +211,25 @@ fn ask_which_to_download<'a>(
     )
 }
 
-async fn download_m3u8(files_to_download: &Vec<&M3u8>) {
-    for m3u8 in files_to_download.iter() {
-        let file_ending_place = m3u8.link.rfind(".").unwrap();
-        let potential_file_ending = &m3u8.link[file_ending_place..];
-        let file_ending = if potential_file_ending.len() > 6 {
-            ".mkv"
-        } else {
-            potential_file_ending
-        };
-        let file_name = format!("{}{}", m3u8.name, file_ending);
-        println!("Downloading {}", &file_name);
-        if let Err(e) = download_with_progress(&m3u8.link, Some(&file_name)).await {
-            eprintln!("Failed to download {}, {:?}", &file_name, e);
-        }
+async fn download_m3u8(file_to_download: &M3u8, path: Option<&str>) {
+    let file_ending_place = file_to_download.link.rfind(".").unwrap();
+    let potential_file_ending = &file_to_download.link[file_ending_place..];
+    let file_ending = if potential_file_ending.len() > 6 {
+        ".mkv"
+    } else {
+        potential_file_ending
+    };
+    let file_name = format!("{}{}", file_to_download.name, file_ending);
+    println!("Downloading {}", &file_name);
+    let path = if let Some(path) = path {
+        format!("{}{}", path, file_ending)
+    } else {
+        file_name.clone()
+    };
+    println!("{}", &path);
+
+    if let Err(e) = download_with_progress(&file_to_download.link, Some(&path)).await {
+        eprintln!("Failed to download {}, {:?}", &file_name, e);
     }
 }
 

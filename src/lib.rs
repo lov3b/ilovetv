@@ -2,7 +2,7 @@ mod m3u8;
 mod parser;
 use std::io::{stdin, stdout, Stdin, StdoutLock, Write};
 
-pub use m3u8::M3u8;
+pub use m3u8::{DataEntry, M3u8};
 pub use parser::Parser;
 mod config;
 pub use config::Configuration;

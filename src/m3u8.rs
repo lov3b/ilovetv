@@ -2,7 +2,7 @@ use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, ops::Deref};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Hash)]
 pub struct M3u8 {
     pub tvg_id: String,
     pub tvg_name: String,
@@ -25,7 +25,7 @@ impl Display for M3u8 {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Hash)]
 pub struct DataEntry {
     m3u8: M3u8,
     pub path: String,
