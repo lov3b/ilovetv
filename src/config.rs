@@ -98,10 +98,11 @@ impl Configuration {
         let config_dir = project_dirs.config_dir();
         let cache_dir = project_dirs.cache_dir().to_path_buf();
         let data_dir = project_dirs.data_local_dir().to_path_buf();
-        let _ = [&config_dir, &cache_dir.as_path(), &data_dir.as_path()]
-            .iter()
-            .filter(|x| !x.exists())
-            .map(fs::create_dir_all);
+        for dir in [&config_dir, &cache_dir.as_path(), &data_dir.as_path()].iter() {
+            if !dir.exists() {
+                let _ = fs::create_dir_all(dir);
+            }
+        }
 
         // Config setup
         let config_file_path = config_dir.join(JSON_CONFIG_FILENAME).to_path_buf();
@@ -139,7 +140,7 @@ impl Configuration {
         }
     }
 
-    pub fn add_datafile_ugly(&self, data_entry: DataEntry) {
+    pub fn push_datafile_ugly(&self, data_entry: DataEntry) {
         unsafe { get_mut_ref(&self.datafile_content) }.push(data_entry);
     }
 
