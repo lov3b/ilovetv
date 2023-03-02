@@ -3,7 +3,7 @@ use std::process::Command;
 use std::rc::Rc;
 
 use colored::Colorize;
-use iptvnator::{download_with_progress, get_mut_ref, Configuration, M3u8, Parser, Readline};
+use ilovetv::{download_with_progress, get_mut_ref, Configuration, M3u8, Parser, Readline};
 
 #[tokio::main]
 async fn main() {
@@ -11,7 +11,7 @@ async fn main() {
     [
         format!(
             "Welcome to {}, a {} iptv client written in rust\n",
-            "iptvnator".bold(),
+            "ilovetv".bold(),
             "BLAZINGLY FAST".italic()
         ),
         "There will be some options along the way".to_owned(),
