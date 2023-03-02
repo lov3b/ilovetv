@@ -7,15 +7,28 @@ use iptvnator::{download_with_progress, get_mut_ref, Configuration, M3u8, Parser
 
 #[tokio::main]
 async fn main() {
-    println!(
-        "Welcome to {}, a {} iptv client written in rust\n",
-        "iptvnator".bold(),
-        "BLAZINGLY FAST".italic()
-    );
-    println!(
-        "There will be some options along the way \n {} is to refresh the local iptvfile.\n {} is to quit and save watched fields\n {} is to download fields\n {} is to perform a new search\n {} is to select all\n {} is to toggtle fullscreen for mpv\n {} is to redo the last search (mainly for use in the last session)\n {} to forget the latest search",
-        "r".bold(),"q".bold(),"d".bold(),"s".bold(),"a".bold(), "f".bold(),"l".bold(),"c".bold()
-    );
+    // Greet the user
+    [
+        format!(
+            "Welcome to {}, a {} iptv client written in rust\n",
+            "iptvnator".bold(),
+            "BLAZINGLY FAST".italic()
+        ),
+        "There will be some options along the way".to_owned(),
+        format!(" {} is to refresh the local iptvfile.", "r".bold()),
+        format!(" {} is to quit and save watched fields", "q".bold()),
+        format!(" {} is to download fields", "d".bold()),
+        format!(" {} is to perform a new search", "s".bold()),
+        format!(" {} is to select all", "a".bold()),
+        format!(" {} is to toggtle fullscreen for mpv", "f".bold()),
+        format!(
+            " {} is to redo the last search (mainly for use in the last session)",
+            "l".bold()
+        ),
+        format!(" {} is to clean the latest search", "c".bold()),
+    ]
+    .iter()
+    .for_each(|s| println!("{}", &s));
 
     let config = Rc::new(Configuration::new().expect("Failed to write to configfile"));
 
@@ -29,7 +42,7 @@ async fn main() {
         // Dont't perform a search if user has just watched, instead present the previous search
         if search_result.is_none() {
             let search = readline
-                .input("Search by name [ r/q/f/l/c ]: ")
+                .input("Search by name [ r/q/f/l ]: ")
                 .to_lowercase();
             let mut search = search.trim();
 
@@ -82,7 +95,7 @@ async fn main() {
         }
 
         let user_wish = readline
-            .input("Which one do you wish to stream? [ q/f/s/r/c/d ]: ")
+            .input("Which one do you wish to stream? [ q/f/s/r/d ]: ")
             .to_lowercase();
         let user_wish = user_wish.trim();
 
@@ -108,10 +121,6 @@ async fn main() {
                     "Toggled mpv to {}launch in fullscreen",
                     if mpv_fs { "" } else { "not " }
                 );
-                continue;
-            }
-            "c" => {
-                config.update_last_search_ugly(None);
                 continue;
             }
             // Downloadmode
