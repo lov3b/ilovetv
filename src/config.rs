@@ -9,12 +9,13 @@ use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-use crate::{download_with_progress, get_mut_ref, Readline};
+use crate::{download_with_progress, get_mut_ref, m3u8::DataEntry, Readline};
 
 const JSON_CONFIG_FILENAME: &'static str = "config.json";
 const APP_IDENTIFIER: [&'static str; 3] = ["com", "billenius", "ilovetv"];
 const STANDARD_PLAYLIST_FILENAME: &'static str = "playlist.m3u8";
 const STANDARD_SEEN_LINKS_FILENAME: &'static str = "watched_links.json";
+const STANDARD_OFFLINE_FILENAME: &'static str = "ilovetv_offline.json";
 const MAX_TRIES: u8 = 4;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -84,6 +85,8 @@ pub struct Configuration {
     pub seen_links_path: PathBuf,
     pub seen_links: Vec<String>,
     config_file_path: PathBuf,
+    pub data_dir: PathBuf,
+    pub datafile_content: Vec<DataEntry>,
 }
 
 impl Configuration {
@@ -91,24 +94,31 @@ impl Configuration {
         let project_dirs =
             ProjectDirs::from(APP_IDENTIFIER[0], APP_IDENTIFIER[1], APP_IDENTIFIER[2]).unwrap();
 
-        // Config dir
+        // Make sure all the dirs for the project are setup correctly
         let config_dir = project_dirs.config_dir();
+        let cache_dir = project_dirs.cache_dir().to_path_buf();
+        let data_dir = project_dirs.data_local_dir().to_path_buf();
+        let _ = [&config_dir, &cache_dir.as_path(), &data_dir.as_path()]
+            .iter()
+            .filter(|x| !x.exists())
+            .map(fs::create_dir_all);
+
+        // Config setup
         let config_file_path = config_dir.join(JSON_CONFIG_FILENAME).to_path_buf();
-        let _ = fs::create_dir_all(config_dir);
-        // Read/create config
         let configuration = Conf::new(&config_file_path)?;
         fs::write(
             &config_file_path,
             serde_json::to_string(&configuration).unwrap(),
         )?;
 
-        // Setup dirs for playlist
-        let cache_dir = project_dirs.cache_dir().to_path_buf();
+        // Playlist
         let playlist_path = cache_dir.join(&configuration.playlist_filename);
         let seen_links_path = cache_dir.join(&configuration.seen_links_filename);
-        let _ = fs::create_dir_all(&cache_dir);
-
         let seen_links = Self::get_watched(&seen_links_path).unwrap_or_default();
+
+        // Datadir
+        let datafile = data_dir.join(STANDARD_OFFLINE_FILENAME);
+        let datafile_content = Self::get_datafile_content(&datafile).unwrap_or_default();
 
         Ok(Self {
             conf: configuration,
@@ -116,6 +126,8 @@ impl Configuration {
             seen_links,
             seen_links_path,
             config_file_path,
+            data_dir,
+            datafile_content,
         })
     }
 
@@ -125,6 +137,15 @@ impl Configuration {
         if let Err(e) = self.write_configfile(&self.config_file_path) {
             println!("Failed to write to configfile, {:?}", e);
         }
+    }
+
+    pub fn add_datafile_ugly(&self, data_entry: DataEntry) {
+        unsafe { get_mut_ref(&self.datafile_content) }.push(data_entry);
+    }
+
+    pub fn write_datafile(&self) -> Result<(), io::Error> {
+        let path = self.data_dir.join(STANDARD_OFFLINE_FILENAME);
+        fs::write(path, serde_json::to_string(&self.datafile_content)?)
     }
 
     fn get_watched(path: &Path) -> Option<Vec<String>> {
@@ -195,6 +216,11 @@ impl Configuration {
         download_with_progress(&self.playlist_url, None)
             .await?
             .get_string()
+    }
+
+    fn get_datafile_content(datafile: &PathBuf) -> Option<Vec<DataEntry>> {
+        let reader = BufReader::new(File::open(datafile).ok()?);
+        serde_json::from_reader(reader).ok()
     }
 }
 

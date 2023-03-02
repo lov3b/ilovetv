@@ -1,6 +1,8 @@
 use colored::Colorize;
-use std::fmt::Display;
+use serde::{Deserialize, Serialize};
+use std::{fmt::Display, ops::Deref};
 
+#[derive(Serialize, Deserialize)]
 pub struct M3u8 {
     pub tvg_id: String,
     pub tvg_name: String,
@@ -20,5 +22,24 @@ impl Display for M3u8 {
         };
         f.write_fmt(format_args!("{} ({})", colored_name, self.link))?;
         Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DataEntry {
+    m3u8: M3u8,
+    pub path: String,
+}
+impl DataEntry {
+    pub fn new(m3u8: M3u8, path: String) -> Self {
+        Self { m3u8, path }
+    }
+}
+
+impl Deref for DataEntry {
+    type Target = M3u8;
+
+    fn deref(&self) -> &Self::Target {
+        &self.m3u8
     }
 }
