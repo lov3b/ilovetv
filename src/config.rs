@@ -90,12 +90,13 @@ impl Configuration {
     pub fn new() -> Result<Self, io::Error> {
         let project_dirs =
             ProjectDirs::from(APP_IDENTIFIER[0], APP_IDENTIFIER[1], APP_IDENTIFIER[2]).unwrap();
+
+        // Config dir
         let config_dir = project_dirs.config_dir();
-        let _ = fs::create_dir_all(config_dir);
         let config_file_path = config_dir.join(JSON_CONFIG_FILENAME).to_path_buf();
-
+        let _ = fs::create_dir_all(config_dir);
+        // Read/create config
         let configuration = Conf::new(&config_file_path)?;
-
         fs::write(
             &config_file_path,
             serde_json::to_string(&configuration).unwrap(),
