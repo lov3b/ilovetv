@@ -1,7 +1,7 @@
 use std::{
     fs::{self, File},
     io::{self, BufReader},
-    ops::Deref,
+    ops::{Deref, DerefMut},
     path::{Path, PathBuf},
 };
 
@@ -9,7 +9,9 @@ use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-use crate::{download_with_progress, get_mut_ref, m3u8::DataEntry, Readline};
+use crate::{
+    download_with_progress, downloader::DualWriter, get_mut_ref, m3u8::DataEntry, M3u8, Readline,
+};
 
 const JSON_CONFIG_FILENAME: &'static str = "config.json";
 const APP_IDENTIFIER: [&'static str; 3] = ["com", "billenius", "ilovetv"];
@@ -154,8 +156,49 @@ impl Configuration {
         serde_json::from_reader(reader).ok()
     }
 
-    fn should_update_playlist(&self) -> bool {
-        fs::metadata(&self.playlist_path)
+    async fn just_download(&self) -> Result<String, String> {
+        download_with_progress(&self.playlist_url, None)
+            .await?
+            .get_string()
+    }
+
+    fn get_datafile_content(datafile: &PathBuf) -> Option<Vec<DataEntry>> {
+        let reader = BufReader::new(File::open(datafile).ok()?);
+        serde_json::from_reader(reader).ok()
+    }
+}
+
+impl Deref for Configuration {
+    type Target = Conf;
+
+    fn deref(&self) -> &Self::Target {
+        &self.conf
+    }
+}
+
+struct Playlist {
+    pub entries: Vec<M3u8>,
+    path_to_playlist: PathBuf,
+}
+
+impl Playlist {
+    pub fn new(path_to_playlist: PathBuf) -> Self {
+        todo!()
+    }
+
+    pub fn write() -> Result<(), io::Error> {
+        todo!()
+    }
+
+    fn get_saved_playlist(path: &Path) -> Option<String> {
+        if !Self::should_update_playlist(path) {
+            return fs::read_to_string(path).ok();
+        }
+        None
+    }
+
+    fn should_update_playlist(path: &Path) -> bool {
+        fs::metadata(path)
             .and_then(|metadata| {
                 Ok({
                     let seconds = metadata.modified()?;
@@ -174,16 +217,17 @@ impl Configuration {
                 |x| x,
             )
     }
-    pub async fn get_playlist(&self) -> Result<String, String> {
-        let content = if let Some(content) = self.get_saved_playlist() {
+
+    pub async fn get_playlist(&self, url: &str, path: &Path) -> Result<String, String> {
+        let content = if let Some(content) = Self::get_saved_playlist(path) {
             content
         } else {
-            let downloaded = self.download_playlist().await?;
-            if let Err(e) = fs::write(&self.playlist_path, &downloaded) {
+            let downloaded = Self::download_playlist(url).await?;
+            if let Err(e) = fs::write(path, &downloaded) {
                 println!(
                     "Failed to save downloaded playlist to file, {:?}, path: '{}'",
                     e,
-                    &self.playlist_path.as_os_str().to_str().unwrap()
+                    path.as_os_str().to_str().unwrap()
                 );
             }
             downloaded
@@ -192,19 +236,15 @@ impl Configuration {
         Ok(content)
     }
 
-    fn get_saved_playlist(&self) -> Option<String> {
-        if !self.should_update_playlist() {
-            return fs::read_to_string(&self.playlist_path).ok();
-        }
-        None
-    }
-
-    pub async fn download_playlist(&self) -> Result<String, String> {
+    pub async fn download_playlist(url: &str) -> Result<String, String> {
         let mut counter: u8 = 0;
         loop {
             counter += 1;
 
-            if let Ok(content) = self.just_download().await {
+            let downloaded = download_with_progress(url, None)
+                .await
+                .and_then(DualWriter::get_string);
+            if let Ok(content) = downloaded {
                 break Ok(content);
             } else if counter > MAX_TRIES {
                 break Err("Failed to download playlist".to_owned());
@@ -212,23 +252,18 @@ impl Configuration {
             println!("Retrying {}/{}", counter + 1, MAX_TRIES);
         }
     }
+}
 
-    async fn just_download(&self) -> Result<String, String> {
-        download_with_progress(&self.playlist_url, None)
-            .await?
-            .get_string()
-    }
+impl Deref for Playlist {
+    type Target = Vec<M3u8>;
 
-    fn get_datafile_content(datafile: &PathBuf) -> Option<Vec<DataEntry>> {
-        let reader = BufReader::new(File::open(datafile).ok()?);
-        serde_json::from_reader(reader).ok()
+    fn deref(&self) -> &Self::Target {
+        &self.entries
     }
 }
 
-impl Deref for Configuration {
-    type Target = Conf;
-
-    fn deref(&self) -> &Self::Target {
-        &self.conf
+impl DerefMut for Playlist {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.entries
     }
 }
