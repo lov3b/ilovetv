@@ -4,18 +4,18 @@ use crate::{
     parser::{Parser, WatchedFind},
     Configuration, OfflineParser, OnlineParser, Playlist, MAX_TRIES,
 };
-use std::fs;
+use std::{fs, rc::Rc};
 
 type Error = String;
 
 pub struct GrandMother {
     pub parser: Box<dyn Parser>,
     pub playlist: Option<Playlist>,
-    pub config: Configuration,
+    pub config: Rc<Configuration>,
 }
 
 impl GrandMother {
-    pub async fn new(config: Configuration) -> Result<Self, Error> {
+    pub async fn new_online(config: Rc<Configuration>) -> Result<Self, Error> {
         let playlist = Playlist::new(config.playlist_path.clone(), config.playlist_url.clone());
         let seen_links = config.seen_links.iter().map(|x| x.as_str()).collect();
         let playlist = playlist.await?;
@@ -30,7 +30,14 @@ impl GrandMother {
         })
     }
 
-    pub fn new_offline(config: Configuration) -> Self {
+    pub async fn promote_to_online(&mut self) -> Result<(), Error> {
+        let online_mother = GrandMother::new_online(self.config.clone()).await?;
+        (self.parser, self.playlist) = (online_mother.parser, online_mother.playlist);
+
+        Ok(())
+    }
+
+    pub fn new_offline(config: Rc<Configuration>) -> Self {
         let parser: Box<dyn Parser> = Box::new(OfflineParser::new(&config));
         Self {
             parser,
