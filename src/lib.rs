@@ -2,17 +2,21 @@ mod config;
 mod downloader;
 mod grandmother;
 mod m3u8;
+mod opt;
 mod parser;
 mod playlist;
+mod getm3u8;
 
 use std::io::{stdin, stdout, Stdin, StdoutLock, Write};
 
 pub use config::Configuration;
 pub use downloader::download_with_progress;
 pub use grandmother::GrandMother;
-pub use m3u8::{DataEntry, M3u8};
+pub use m3u8::{OfflineEntry, M3u8};
+pub use opt::{Mode, Opt};
 pub use parser::Parser;
 pub use playlist::Playlist;
+pub use getm3u8::GetM3u8;
 
 pub const JSON_CONFIG_FILENAME: &'static str = "config.json";
 pub const APP_IDENTIFIER: [&'static str; 3] = ["com", "billenius", "ilovetv"];
@@ -20,6 +24,7 @@ pub const STANDARD_PLAYLIST_FILENAME: &'static str = "playlist.m3u8";
 pub const STANDARD_SEEN_LINKS_FILENAME: &'static str = "watched_links.json";
 pub const STANDARD_OFFLINE_FILENAME: &'static str = "ilovetv_offline.json";
 pub const MAX_TRIES: u8 = 4;
+
 pub struct Readline<'a> {
     stdout: StdoutLock<'a>,
     stdin: Stdin,

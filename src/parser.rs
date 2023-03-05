@@ -1,6 +1,12 @@
-use std::ops::Deref;
+use std::{
+    fs::{self, File},
+    io::BufReader,
+    ops::Deref,
+};
 
-use crate::m3u8::M3u8;
+use serde::Serialize;
+
+use crate::{m3u8::M3u8, Configuration, GetM3u8};
 
 pub struct Parser {
     m3u8_items: Vec<M3u8>,
@@ -38,14 +44,6 @@ impl Parser {
             .collect();
 
         self.m3u8_items = Self::parse_m3u8(content, seen_links);
-    }
-
-    pub fn get_watched(&self) -> Vec<&String> {
-        self.m3u8_items
-            .iter()
-            .filter(|x| x.watched)
-            .map(|x| &x.link)
-            .collect()
     }
 
     fn parse_m3u8(content: &str, watched_links: &Vec<&str>) -> Vec<M3u8> {
@@ -91,5 +89,26 @@ impl Deref for Parser {
 
     fn deref(&self) -> &Self::Target {
         &self.m3u8_items
+    }
+}
+
+impl GetM3u8 for Parser {
+    fn get_m3u8(&self) -> Vec<&M3u8> {
+        self.m3u8_items.iter().collect()
+    }
+}
+
+#[derive(Serialize)]
+struct OfflineEntry {
+    m3u8: M3u8,
+    path: String,
+}
+#[derive(Serialize)]
+struct OfflineParser {
+    m3u8_items: Vec<OfflineEntry>,
+}
+impl OfflineParser {
+    pub fn new(config: &Configuration) -> Result<Self, std::io::Error> {
+        todo!()
     }
 }

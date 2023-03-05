@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 
 use crate::{
-    get_mut_ref, m3u8::DataEntry, Readline, APP_IDENTIFIER, JSON_CONFIG_FILENAME,
+    get_mut_ref, m3u8::OfflineEntry, Readline, APP_IDENTIFIER, JSON_CONFIG_FILENAME,
     STANDARD_OFFLINE_FILENAME, STANDARD_PLAYLIST_FILENAME, STANDARD_SEEN_LINKS_FILENAME,
 };
 
@@ -83,7 +83,7 @@ pub struct Configuration {
     pub seen_links: Vec<String>,
     config_file_path: PathBuf,
     pub data_dir: PathBuf,
-    pub datafile_content: Vec<DataEntry>,
+    pub offlinefile_content: Rc<Vec<OfflineEntry>>,
 }
 
 impl Configuration {
@@ -94,8 +94,8 @@ impl Configuration {
         // Make sure all the dirs for the project are setup correctly
         let config_dir = project_dirs.config_dir();
         let cache_dir = project_dirs.cache_dir().to_path_buf();
-        let data_dir = project_dirs.data_local_dir().to_path_buf();
-        for dir in [&config_dir, &cache_dir.as_path(), &data_dir.as_path()].iter() {
+        let offline_dir = project_dirs.data_local_dir().to_path_buf();
+        for dir in [&config_dir, &cache_dir.as_path(), &offline_dir.as_path()].iter() {
             if !dir.exists() {
                 let _ = fs::create_dir_all(dir);
             }
@@ -115,8 +115,9 @@ impl Configuration {
         let seen_links = Self::get_watched(&seen_links_path).unwrap_or_default();
 
         // Datadir
-        let datafile = data_dir.join(STANDARD_OFFLINE_FILENAME);
-        let datafile_content = Self::get_datafile_content(&datafile).unwrap_or_default();
+        let offlinefile = offline_dir.join(STANDARD_OFFLINE_FILENAME);
+        let offlinefile_content =
+            Rc::new(Self::get_offline_content(&offlinefile).unwrap_or_default());
 
         Ok(Self {
             conf: configuration,
@@ -124,8 +125,8 @@ impl Configuration {
             seen_links,
             seen_links_path,
             config_file_path,
-            data_dir,
-            datafile_content,
+            data_dir: offline_dir,
+            offlinefile_content,
         })
     }
 
@@ -137,13 +138,13 @@ impl Configuration {
         }
     }
 
-    pub fn push_datafile_ugly(&self, data_entry: DataEntry) {
-        unsafe { get_mut_ref(&self.datafile_content) }.push(data_entry);
+    pub fn push_offlinefile_ugly(&self, data_entry: OfflineEntry) {
+        unsafe { get_mut_ref(&*self.offlinefile_content) }.push(data_entry);
     }
 
     pub fn write_datafile(&self) -> Result<(), io::Error> {
         let path = self.data_dir.join(STANDARD_OFFLINE_FILENAME);
-        fs::write(path, serde_json::to_string(&self.datafile_content)?)
+        fs::write(path, serde_json::to_string(&self.offlinefile_content)?)
     }
 
     fn get_watched(path: &Path) -> Option<Vec<String>> {
@@ -151,7 +152,7 @@ impl Configuration {
         serde_json::from_reader(reader).ok()
     }
 
-    fn get_datafile_content(datafile: &PathBuf) -> Option<Vec<DataEntry>> {
+    fn get_offline_content(datafile: &PathBuf) -> Option<Vec<OfflineEntry>> {
         let reader = BufReader::new(File::open(datafile).ok()?);
         serde_json::from_reader(reader).ok()
     }
