@@ -2,7 +2,8 @@ use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, ops::Deref, rc::Rc};
 
-use crate::{Configuration, GetM3u8};
+#[allow(unused_imports)]
+use crate::GetM3u8;
 
 #[derive(Serialize, Deserialize, Clone, Hash)]
 pub struct M3u8 {
@@ -11,7 +12,7 @@ pub struct M3u8 {
     pub tvg_logo: String,
     pub group_title: String,
     pub name: String,
-    pub link: String,
+    pub link: Rc<String>,
     pub watched: bool,
 }
 
@@ -30,11 +31,11 @@ impl Display for M3u8 {
 #[derive(Serialize, Deserialize, Clone, Hash)]
 pub struct OfflineEntry {
     m3u8: M3u8,
-    pub path: String,
+    pub path: Rc<String>,
 }
 
 impl OfflineEntry {
-    pub fn new(m3u8: M3u8, path: String) -> Self {
+    pub fn new(m3u8: M3u8, path: Rc<String>) -> Self {
         Self { m3u8, path }
     }
 }
@@ -44,23 +45,5 @@ impl Deref for OfflineEntry {
 
     fn deref(&self) -> &Self::Target {
         &self.m3u8
-    }
-}
-
-struct OfflineParser {
-    entries: Rc<Vec<OfflineEntry>>,
-}
-
-impl OfflineParser {
-    pub fn new(conf: &Configuration) -> Self {
-        Self {
-            entries: conf.offlinefile_content.clone(),
-        }
-    }
-}
-
-impl GetM3u8 for OfflineParser {
-    fn get_m3u8(&self) -> Vec<&M3u8> {
-        self.entries.iter().map(|x| &**x).collect()
     }
 }

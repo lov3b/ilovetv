@@ -1,44 +1,61 @@
+#[allow(unused_imports)]
+use crate::GetM3u8;
+use crate::{
+    getm3u8::{M3u8PlayPath, WatchedFind},
+    Configuration, OfflineParser, Parser, Playlist, MAX_TRIES,
+};
 use std::fs;
 
-use crate::{getm3u8::WatchedFind, Configuration, GetM3u8, Parser, Playlist, MAX_TRIES};
+type Error = String;
 
-pub struct GrandMother<T>
-where
-    T: GetM3u8,
-{
-    pub parser: T,
-    pub playlist: Playlist,
+pub struct GrandMother {
+    pub parser: Box<dyn M3u8PlayPath>,
+    pub playlist: Option<Playlist>,
     pub config: Configuration,
 }
 
-impl GrandMother<Parser> {
-    pub async fn new(config: Configuration) -> Result<Self, String> {
+impl GrandMother {
+    pub async fn new(config: Configuration) -> Result<Self, Error> {
         let playlist = Playlist::new(config.playlist_path.clone(), config.playlist_url.clone());
         let seen_links = config.seen_links.iter().map(|x| x.as_str()).collect();
         let playlist = playlist.await?;
         let playlist_content = playlist.get_saved_or_download().await?;
-
-        let parser = Parser::new(&playlist_content, &seen_links).await;
+        let parser: Box<dyn M3u8PlayPath> =
+            Box::new(Parser::new(&playlist_content, &seen_links).await);
 
         Ok(Self {
             parser,
-            playlist,
+            playlist: Some(playlist),
             config,
         })
     }
 
-    pub async fn refresh_dirty(&self) {
-        let ptr = self as *const Self as *mut Self;
-        unsafe { &mut *ptr }.refresh().await;
+    pub fn new_offline(config: Configuration) -> Self {
+        let parser: Box<dyn M3u8PlayPath> = Box::new(OfflineParser::new(&config));
+        Self {
+            parser,
+            playlist: None,
+            config,
+        }
     }
 
-    pub async fn refresh(&mut self) {
+    pub async fn refresh_dirty(&self) -> Result<(), Error> {
+        let ptr = self as *const Self as *mut Self;
+        unsafe { &mut *ptr }.refresh().await
+    }
+
+    pub async fn refresh(&mut self) -> Result<(), Error> {
         let mut counter = 0;
         let content = loop {
             counter += 1;
-            let content = self.playlist.download().await;
+            let content = self
+                .playlist
+                .as_ref()
+                .ok_or_else(|| "Cannot refresh playlist in offlinemode")?
+                .download()
+                .await;
             if counter > MAX_TRIES {
-                return;
+                return Ok(());
             }
             if let Ok(content) = content {
                 break content;
@@ -52,7 +69,9 @@ impl GrandMother<Parser> {
             .iter()
             .map(|x| x.link.as_str())
             .collect();
-        self.parser = Parser::new(&content, &watched_links).await;
+        self.parser = Box::new(Parser::new(&content, &watched_links).await);
+
+        Ok(())
     }
 
     pub fn save_watched(&self) {

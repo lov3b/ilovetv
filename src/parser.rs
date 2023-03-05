@@ -1,12 +1,8 @@
-use std::{
-    fs::{self, File},
-    io::BufReader,
-    ops::Deref,
-};
+use std::{ops::Deref, rc::Rc};
 
 use serde::Serialize;
 
-use crate::{m3u8::M3u8, Configuration, GetM3u8};
+use crate::{m3u8::M3u8, Configuration, GetM3u8, GetPlayPath, OfflineEntry};
 
 pub struct Parser {
     m3u8_items: Vec<M3u8>,
@@ -75,7 +71,7 @@ impl Parser {
                 tvg_logo: items[2].to_owned(),
                 group_title: items[3].to_owned(),
                 name: name.to_owned(),
-                link: link.to_string(),
+                link: Rc::new(link.to_string()),
                 watched: is_watched,
             };
             m3u8_items.push(m3u8_item);
@@ -98,17 +94,36 @@ impl GetM3u8 for Parser {
     }
 }
 
-#[derive(Serialize)]
-struct OfflineEntry {
-    m3u8: M3u8,
-    path: String,
+impl GetPlayPath for Parser {
+    fn get_path_to_play<'a>(&'a self, link: Rc<String>) -> Result<Rc<String>, String> {
+        Ok(link.clone())
+    }
 }
 #[derive(Serialize)]
-struct OfflineParser {
-    m3u8_items: Vec<OfflineEntry>,
+pub struct OfflineParser {
+    m3u8_items: Rc<Vec<OfflineEntry>>,
 }
 impl OfflineParser {
-    pub fn new(config: &Configuration) -> Result<Self, std::io::Error> {
-        todo!()
+    pub fn new(config: &Configuration) -> Self {
+        Self {
+            m3u8_items: config.offlinefile_content.clone(),
+        }
+    }
+}
+
+impl GetPlayPath for OfflineParser {
+    fn get_path_to_play(&self, link: Rc<String>) -> Result<Rc<String>, String> {
+        for offline_entry in &*self.m3u8_items {
+            if *offline_entry.link == *link {
+                return Ok(offline_entry.path.clone());
+            }
+        }
+        Err("Not stored for offline use".to_owned())
+    }
+}
+
+impl GetM3u8 for OfflineParser {
+    fn get_m3u8(&self) -> Vec<&M3u8> {
+        self.m3u8_items.iter().map(|x| &**x).collect()
     }
 }
