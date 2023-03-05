@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use crate::GetM3u8;
 use crate::{
-    getm3u8::{Parser, WatchedFind},
+    parser::{Parser, WatchedFind},
     Configuration, OfflineParser, OnlineParser, Playlist, MAX_TRIES,
 };
 use std::fs;

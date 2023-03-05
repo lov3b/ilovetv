@@ -1,6 +1,6 @@
 mod config;
 mod downloader;
-pub mod getm3u8;
+pub mod parser;
 mod grandmother;
 mod m3u8;
 mod offlineparser;
@@ -13,7 +13,7 @@ use std::io::{stdin, stdout, Stdin, StdoutLock, Write};
 use async_recursion::async_recursion;
 pub use config::Configuration;
 pub use downloader::download_with_progress;
-pub use getm3u8::{GetM3u8, GetPlayPath, WatchedFind};
+pub use parser::{GetM3u8, GetPlayPath, WatchedFind};
 pub use grandmother::GrandMother;
 pub use m3u8::{M3u8, OfflineEntry};
 pub use offlineparser::OfflineParser;
