@@ -1,24 +1,24 @@
 mod config;
 mod downloader;
-pub mod parser;
 mod grandmother;
 mod m3u8;
 mod offlineparser;
 mod onlineparser;
 mod opt;
+pub mod parser;
 mod playlist;
 
-use std::io::{stdin, stdout, Stdin, StdoutLock, Write};
+use std::{io::{stdin, stdout, Stdin, StdoutLock, Write}, rc::Rc};
 
 use async_recursion::async_recursion;
 pub use config::Configuration;
 pub use downloader::download_with_progress;
-pub use parser::{GetM3u8, GetPlayPath, WatchedFind};
 pub use grandmother::GrandMother;
 pub use m3u8::{M3u8, OfflineEntry};
 pub use offlineparser::OfflineParser;
 pub use onlineparser::OnlineParser;
 pub use opt::{Mode, Opt};
+pub use parser::{GetM3u8, GetPlayPath, WatchedFind};
 pub use playlist::Playlist;
 
 pub const JSON_CONFIG_FILENAME: &'static str = "config.json";
@@ -64,10 +64,10 @@ pub unsafe fn get_mut_ref<T>(reference: &T) -> &mut T {
 pub async fn get_gm(
     mode: Mode,
     readline: &mut Readline<'_>,
-    config: Configuration,
+    config: Rc<Configuration>,
 ) -> Result<GrandMother, String> {
     match mode {
-        Mode::Online => GrandMother::new(config).await,
+        Mode::Online => GrandMother::new_online(config).await,
         Mode::Offline => Ok(GrandMother::new_offline(config)),
         Mode::Ask => loop {
             let input = readline

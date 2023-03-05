@@ -27,6 +27,11 @@ async fn main() {
         format!(" {} is to refresh the local iptvfile.", "r".bold()),
         format!(" {} is to quit and save watched fields", "q".bold()),
         format!(" {} is to download fields", "d".bold()),
+        format!(
+            " {} is to make entries availibe for offline use later on in the program",
+            "o".bold()
+        ),
+        format!(" {} is to switch to online mode", "m".bold()),
         format!(" {} is to perform a new search", "s".bold()),
         format!(" {} is to select all", "a".bold()),
         format!(" {} is to toggtle fullscreen for mpv", "f".bold()),
@@ -50,7 +55,7 @@ async fn main() {
     let gm = get_gm(
         opt.mode,
         &mut readline,
-        Configuration::new().expect("Failed to write to configfile"),
+        Rc::new(Configuration::new().expect("Failed to write to configfile")),
     )
     .await
     .expect("Failed to retrive online playlist");
@@ -59,7 +64,7 @@ async fn main() {
         // Dont't perform a search if user has just watched, instead present the previous search
         if search_result.is_none() {
             let search = readline
-                .input("Search by name [ r/q/f/l ]: ")
+                .input("Search by name [ r/q/f/l/m ]: ")
                 .to_lowercase();
             let mut search = search.trim();
 
@@ -99,6 +104,13 @@ async fn main() {
                     gm.config.update_last_search_ugly(None);
                     continue;
                 }
+                "m" => {
+                    let result = unsafe { get_mut_ref(&gm) }.promote_to_online().await;
+                    if let Err(e) = result {
+                        println!("Failed to switch to onlinemode {:?}", e);
+                    }
+                    continue;
+                }
                 _ => {}
             }
             search_result = Some(Rc::new(gm.parser.find(search)));
@@ -117,7 +129,7 @@ async fn main() {
         }
 
         let user_wish = readline
-            .input("Which one do you wish to stream? [ q/f/s/r/d ]: ")
+            .input("Which one do you wish to stream? [ q/f/s/r/d/o/m ]: ")
             .to_lowercase();
         let user_wish = user_wish.trim();
 
@@ -178,6 +190,13 @@ async fn main() {
                         e
                     )
                 }
+            }
+            "m" => {
+                let result = unsafe { get_mut_ref(&gm) }.promote_to_online().await;
+                if let Err(e) = result {
+                    println!("Failed to switch to onlinemode {:?}", e);
+                }
+                continue;
             }
             _ => {}
         }
@@ -259,7 +278,6 @@ async fn download_m3u8(file_to_download: &M3u8, path: Option<&str>) {
     } else {
         file_name.clone()
     };
-    println!("{}", &path);
 
     if let Err(e) = download_with_progress(&file_to_download.link, Some(&path)).await {
         eprintln!("Failed to download {}, {:?}", &file_name, e);
