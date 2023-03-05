@@ -7,7 +7,7 @@ pub struct Opt {
     #[structopt(short, long, default_value = "ask")]
     /// Choose whether to launch in offlinemode, onlinemode or wheter to ask during startup.
     /// In offlinemode it's only possible to watch downloaded entries
-    pub offline_mode: Mode,
+    pub mode: Mode,
 }
 
 #[derive(Debug)]

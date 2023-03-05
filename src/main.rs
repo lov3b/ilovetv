@@ -2,13 +2,15 @@ use std::num::ParseIntError;
 use std::process::Command;
 use std::rc::Rc;
 
-use async_recursion::async_recursion;
 use colored::Colorize;
-use ilovetv::{
-    download_with_progress, get_mut_ref, Configuration, GetM3u8, GrandMother, M3u8, Mode,
-    OfflineEntry, Opt, Parser, Readline,
-};
 use structopt::StructOpt;
+
+use ilovetv::{
+    download_with_progress, get_gm, get_mut_ref, Configuration, M3u8, OfflineEntry, Opt, Readline,
+    WatchedFind,
+};
+#[allow(unused_imports)]
+use ilovetv::{GetM3u8, GetPlayPath, OfflineParser};
 
 #[tokio::main]
 async fn main() {
@@ -37,14 +39,21 @@ async fn main() {
     .iter()
     .for_each(|s| println!("{}", &s));
 
-    let gm = GrandMother::new(Configuration::new().expect("Failed to write to configfile"))
-        .await
-        .unwrap();
+    // let gm = GrandMother::new(Configuration::new().expect("Failed to write to configfile"))
+    //     .await
+    //     .unwrap();
     // let parser = Parser::new(config.clone()).await;
 
     let mut mpv_fs = false;
     let mut search_result: Option<Rc<Vec<&M3u8>>> = None;
     let mut readline = Readline::new();
+    let gm = get_gm(
+        opt.mode,
+        &mut readline,
+        Configuration::new().expect("Failed to write to configfile"),
+    )
+    .await
+    .expect("Failed to retrive online playlist");
 
     loop {
         // Dont't perform a search if user has just watched, instead present the previous search
@@ -61,7 +70,12 @@ async fn main() {
                 // Refresh playlist
                 "r" => {
                     search_result = None;
-                    gm.refresh_dirty().await;
+                    if let Err(e) = gm.refresh_dirty().await {
+                        println!(
+                            "Cannot refresh. This is probably due to offlinemode {:?}",
+                            e
+                        );
+                    };
                     continue;
                 }
                 // Toggle fullscreen for mpv
@@ -120,7 +134,12 @@ async fn main() {
             "r" => {
                 println!("Refreshing local m3u8-file");
                 search_result = None;
-                gm.refresh_dirty().await;
+                if let Err(e) = gm.refresh_dirty().await {
+                    println!(
+                        "Cannot refresh. This is probably due to offlinemode {:?}",
+                        e
+                    );
+                };
                 continue;
             }
             "f" => {
@@ -147,7 +166,7 @@ async fn main() {
 
                 for to_download in download_selections.iter() {
                     let path = gm.config.data_dir.join(&to_download.name);
-                    let path = path.to_string_lossy().to_string();
+                    let path = Rc::new(path.to_string_lossy().to_string());
                     download_m3u8(to_download, Some(&path)).await;
                     let data_entry = OfflineEntry::new((*to_download).clone(), path);
                     gm.config.push_offlinefile_ugly(data_entry);
@@ -167,39 +186,19 @@ async fn main() {
         match choosen {
             Ok(k) => {
                 let search_result = search_result.as_ref().unwrap();
-                stream(search_result[k - 1], mpv_fs);
+                let to_play = search_result[k - 1];
+                let path_link = if let Ok(link) = gm.parser.get_path_to_play(to_play.link.clone()) {
+                    link
+                } else {
+                    println!("Not possible to refresh playlist while in offlinemode");
+                    continue;
+                };
+
+                stream(to_play, &*path_link, mpv_fs);
                 gm.save_watched();
             }
             Err(e) => println!("Have to be a valid number! {:?}", e),
         }
-    }
-}
-
-#[async_recursion(?Send)]
-async fn get_gm(
-    mode: Mode,
-    readline: &mut Readline<'_>,
-    config: Configuration,
-) -> Result<GrandMother<Parser>, String> {
-    match mode {
-        Mode::Online => GrandMother::new(config).await,
-        Mode::Offline => GrandMother::new_in_offline(config),
-        Mode::Ask => loop {
-            let input = readline
-                .input("Online/Offline mode? [1/2]")
-                .trim()
-                .parse::<u8>();
-            if let Ok(num) = input {
-                if num == 1 {
-                    return get_gm(Mode::Online, readline, config).await;
-                } else if num == 2 {
-                    return get_gm(Mode::Offline, readline, config).await;
-                }
-                println!("Has to be either 1 (Onine) or 2 (Offline)");
-            } else {
-                println!("Has to be a number");
-            }
-        },
     }
 }
 
@@ -272,10 +271,10 @@ async fn download_m3u8(file_to_download: &M3u8, path: Option<&str>) {
  * in this context and also the most efficient way.
  * With other words, it's BLAZINGLY FAST
  */
-fn stream(m3u8item: &M3u8, launch_in_fullscreen: bool) {
+fn stream(m3u8item: &M3u8, link: &String, launch_in_fullscreen: bool) {
     let mut m3u8item = unsafe { get_mut_ref(m3u8item) };
     m3u8item.watched = true;
-    let mut args: Vec<&str> = vec![&m3u8item.link];
+    let mut args: Vec<&str> = vec![link];
     if launch_in_fullscreen {
         args.push("--fs");
     }
