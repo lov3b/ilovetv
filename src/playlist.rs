@@ -10,7 +10,7 @@ use crate::{download_with_progress, downloader::DualWriter, MAX_TRIES};
 pub struct Playlist {
     pub content: String,
     path_to_playlist: Rc<PathBuf>,
-    url: Rc<String>,
+    url: Option<Rc<String>>,
 }
 
 impl Playlist {
@@ -18,7 +18,7 @@ impl Playlist {
         let mut me = Self {
             content: String::new(),
             path_to_playlist,
-            url,
+            url: Some(url),
         };
         me.content = me.get_saved_or_download().await?;
 
@@ -76,7 +76,13 @@ impl Playlist {
         loop {
             counter += 1;
 
-            let downloaded = download_with_progress(&self.url, None)
+            let url = self
+                .url
+                .as_ref()
+                .clone()
+                .ok_or_else(|| String::from("In offline mode"))?;
+
+            let downloaded = download_with_progress(url, None)
                 .await
                 .and_then(DualWriter::get_string);
             if let Ok(content) = downloaded {

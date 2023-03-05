@@ -2,13 +2,18 @@ use std::num::ParseIntError;
 use std::process::Command;
 use std::rc::Rc;
 
+use async_recursion::async_recursion;
 use colored::Colorize;
 use ilovetv::{
-    download_with_progress, get_mut_ref, Configuration, DataEntry, GrandMother, M3u8, Readline,
+    download_with_progress, get_mut_ref, Configuration, GetM3u8, GrandMother, M3u8, Mode,
+    OfflineEntry, Opt, Parser, Readline,
 };
+use structopt::StructOpt;
 
 #[tokio::main]
 async fn main() {
+    let opt = Opt::from_args();
+
     // Greet the user
     [
         format!(
@@ -144,8 +149,8 @@ async fn main() {
                     let path = gm.config.data_dir.join(&to_download.name);
                     let path = path.to_string_lossy().to_string();
                     download_m3u8(to_download, Some(&path)).await;
-                    let data_entry = DataEntry::new((*to_download).clone(), path);
-                    gm.config.push_datafile_ugly(data_entry);
+                    let data_entry = OfflineEntry::new((*to_download).clone(), path);
+                    gm.config.push_offlinefile_ugly(data_entry);
                 }
 
                 if let Err(e) = gm.config.write_datafile() {
@@ -167,6 +172,34 @@ async fn main() {
             }
             Err(e) => println!("Have to be a valid number! {:?}", e),
         }
+    }
+}
+
+#[async_recursion(?Send)]
+async fn get_gm(
+    mode: Mode,
+    readline: &mut Readline<'_>,
+    config: Configuration,
+) -> Result<GrandMother<Parser>, String> {
+    match mode {
+        Mode::Online => GrandMother::new(config).await,
+        Mode::Offline => GrandMother::new_in_offline(config),
+        Mode::Ask => loop {
+            let input = readline
+                .input("Online/Offline mode? [1/2]")
+                .trim()
+                .parse::<u8>();
+            if let Ok(num) = input {
+                if num == 1 {
+                    return get_gm(Mode::Online, readline, config).await;
+                } else if num == 2 {
+                    return get_gm(Mode::Offline, readline, config).await;
+                }
+                println!("Has to be either 1 (Onine) or 2 (Offline)");
+            } else {
+                println!("Has to be a number");
+            }
+        },
     }
 }
 

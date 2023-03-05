@@ -1,14 +1,17 @@
 use std::fs;
 
-use crate::{Configuration, Parser, Playlist, MAX_TRIES};
+use crate::{getm3u8::WatchedFind, Configuration, GetM3u8, Parser, Playlist, MAX_TRIES};
 
-pub struct GrandMother {
-    pub parser: Parser,
+pub struct GrandMother<T>
+where
+    T: GetM3u8,
+{
+    pub parser: T,
     pub playlist: Playlist,
     pub config: Configuration,
 }
 
-impl GrandMother {
+impl GrandMother<Parser> {
     pub async fn new(config: Configuration) -> Result<Self, String> {
         let playlist = Playlist::new(config.playlist_path.clone(), config.playlist_url.clone());
         let seen_links = config.seen_links.iter().map(|x| x.as_str()).collect();
@@ -43,8 +46,12 @@ impl GrandMother {
             println!("Retrying {}/{}", counter, MAX_TRIES);
         };
 
-        let watched_links = self.parser.get_watched();
-        let watched_links = watched_links.iter().map(|x| x.as_str()).collect();
+        let watched_links = self
+            .parser
+            .get_watched()
+            .iter()
+            .map(|x| x.link.as_str())
+            .collect();
         self.parser = Parser::new(&content, &watched_links).await;
     }
 
