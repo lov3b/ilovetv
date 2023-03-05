@@ -1,8 +1,6 @@
 use std::{ops::Deref, rc::Rc};
 
-use serde::Serialize;
-
-use crate::{m3u8::M3u8, Configuration, GetM3u8, GetPlayPath, OfflineEntry};
+use crate::{m3u8::M3u8, GetM3u8, GetPlayPath};
 
 pub struct OnlineParser {
     m3u8_items: Vec<M3u8>,
