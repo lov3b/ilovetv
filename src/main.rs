@@ -4,8 +4,7 @@ use std::rc::Rc;
 
 use colored::Colorize;
 use ilovetv::{
-    download_with_progress, get_mut_ref, Configuration, DataEntry, GrandMother, M3u8, Parser,
-    Readline,
+    download_with_progress, get_mut_ref, Configuration, DataEntry, GrandMother, M3u8, Readline,
 };
 
 #[tokio::main]

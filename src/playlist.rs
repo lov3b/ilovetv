@@ -5,7 +5,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::{download_with_progress, downloader::DualWriter, Configuration, Parser, MAX_TRIES};
+use crate::{download_with_progress, downloader::DualWriter, MAX_TRIES};
 
 pub struct Playlist {
     pub content: String,
