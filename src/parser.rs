@@ -1,24 +1,15 @@
-use std::fs;
 use std::ops::Deref;
-use std::rc::Rc;
 
 use crate::m3u8::M3u8;
-use crate::Configuration;
-
-const MAX_TRIES: usize = 4;
 
 pub struct Parser {
-    configuration: Rc<Configuration>,
     m3u8_items: Vec<M3u8>,
 }
 
 impl Parser {
-    pub async fn new(configuration: Rc<Configuration>) -> Self {
-        let m3u8_items = Self::get_parsed_m3u8(&configuration).await.unwrap();
-
+    pub async fn new(m3u_content: &str, watched_links: &Vec<&str>) -> Self {
         Self {
-            configuration,
-            m3u8_items,
+            m3u8_items: Self::parse_m3u8(m3u_content, watched_links),
         }
     }
 
@@ -30,41 +21,34 @@ impl Parser {
             .collect()
     }
 
-    pub async fn forcefully_update(&mut self) {
-        let mut counter = 0;
-        let content = loop {
-            counter += 1;
-            let content = self.download_playlist().await;
-            if counter > MAX_TRIES {
-                return;
-            } else if content.is_ok() {
-                break content.unwrap();
-            }
-            println!("Retrying {}/{}", counter, MAX_TRIES);
-        };
+    /*
+     * I know that this is also frowned upon, but it is perfectly safe right here,
+     * even though the borrowchecker complains
+     */
+    // async fn refresh(&self) {
+    //     unsafe { get_mut_ref(&self.pla) }.forcefully_update().await;
+    // }
 
-        self.m3u8_items = Self::parse_m3u8(content, &self.seen_links);
-    }
-
-    pub fn save_watched(&self) {
-        let watched_items = self
+    pub async fn forcefully_update(&mut self, content: &str) {
+        let seen_links: &Vec<&str> = &self
             .m3u8_items
             .iter()
-            .filter(|item| item.watched)
-            .map(|item| item.link.clone())
-            .collect::<Vec<String>>();
+            .filter(|x| x.watched)
+            .map(|x| x.link.as_str())
+            .collect();
 
-        let resp = fs::write(
-            &self.seen_links_path,
-            serde_json::to_string(&watched_items).unwrap(),
-        );
-        
-        if let Err(e) = resp {
-            eprintln!("Failed to write watched links {:?}", e);
-        }
+        self.m3u8_items = Self::parse_m3u8(content, seen_links);
     }
 
-    fn parse_m3u8(content: String, watched_links: &Vec<String>) -> Vec<M3u8> {
+    pub fn get_watched(&self) -> Vec<&String> {
+        self.m3u8_items
+            .iter()
+            .filter(|x| x.watched)
+            .map(|x| &x.link)
+            .collect()
+    }
+
+    fn parse_m3u8(content: &str, watched_links: &Vec<&str>) -> Vec<M3u8> {
         let mut m3u8_items: Vec<M3u8> = Vec::new();
         let interesting_lines: Vec<String> = content
             .replacen("#EXTM3U\n", "", 1)
@@ -85,8 +69,8 @@ impl Parser {
             }
             let name_start = interesting_lines[i].rfind(",").unwrap() + 1;
             let name = &interesting_lines[i][name_start..];
-            let link = &interesting_lines[i + 1];
-            let is_watched = watched_links.contains(link);
+            let link = interesting_lines[i + 1].as_str();
+            let is_watched = watched_links.contains(&link);
             let m3u8_item = M3u8 {
                 tvg_id: items[0].to_owned(),
                 tvg_name: items[1].to_owned(),
@@ -100,19 +84,12 @@ impl Parser {
         }
         m3u8_items
     }
-
-    async fn get_parsed_m3u8(config: &Configuration) -> Result<Vec<M3u8>, String> {
-        Ok(Self::parse_m3u8(
-            config.get_playlist().await?,
-            &config.seen_links,
-        ))
-    }
 }
 
 impl Deref for Parser {
-    type Target = Configuration;
+    type Target = Vec<M3u8>;
 
     fn deref(&self) -> &Self::Target {
-        &self.configuration
+        &self.m3u8_items
     }
 }
