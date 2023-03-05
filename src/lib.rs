@@ -3,8 +3,9 @@ mod downloader;
 pub mod getm3u8;
 mod grandmother;
 mod m3u8;
+mod offlineparser;
+mod onlineparser;
 mod opt;
-mod parser;
 mod playlist;
 
 use std::io::{stdin, stdout, Stdin, StdoutLock, Write};
@@ -15,8 +16,9 @@ pub use downloader::download_with_progress;
 pub use getm3u8::{GetM3u8, GetPlayPath, WatchedFind};
 pub use grandmother::GrandMother;
 pub use m3u8::{M3u8, OfflineEntry};
+pub use offlineparser::OfflineParser;
+pub use onlineparser::OnlineParser;
 pub use opt::{Mode, Opt};
-pub use parser::{OfflineParser, Parser};
 pub use playlist::Playlist;
 
 pub const JSON_CONFIG_FILENAME: &'static str = "config.json";

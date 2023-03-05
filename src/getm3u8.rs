@@ -28,5 +28,5 @@ pub trait GetPlayPath {
     fn get_path_to_play(&self, link: Rc<String>) -> Result<Rc<String>, String>;
 }
 
-pub trait M3u8PlayPath: GetM3u8 + GetPlayPath {}
-impl<T: GetM3u8 + GetPlayPath> M3u8PlayPath for T {}
+pub trait Parser: GetM3u8 + GetPlayPath {}
+impl<T: GetM3u8 + GetPlayPath> Parser for T {}
