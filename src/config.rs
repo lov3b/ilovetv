@@ -11,9 +11,8 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 
 use crate::{
-    download_with_progress, get_mut_ref, m3u8::DataEntry, Readline, APP_IDENTIFIER,
-    JSON_CONFIG_FILENAME, STANDARD_OFFLINE_FILENAME, STANDARD_PLAYLIST_FILENAME,
-    STANDARD_SEEN_LINKS_FILENAME,
+    get_mut_ref, m3u8::DataEntry, Readline, APP_IDENTIFIER, JSON_CONFIG_FILENAME,
+    STANDARD_OFFLINE_FILENAME, STANDARD_PLAYLIST_FILENAME, STANDARD_SEEN_LINKS_FILENAME,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
