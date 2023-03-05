@@ -1,15 +1,15 @@
 #[allow(unused_imports)]
 use crate::GetM3u8;
 use crate::{
-    getm3u8::{M3u8PlayPath, WatchedFind},
-    Configuration, OfflineParser, Parser, Playlist, MAX_TRIES,
+    getm3u8::{Parser, WatchedFind},
+    Configuration, OfflineParser, OnlineParser, Playlist, MAX_TRIES,
 };
 use std::fs;
 
 type Error = String;
 
 pub struct GrandMother {
-    pub parser: Box<dyn M3u8PlayPath>,
+    pub parser: Box<dyn Parser>,
     pub playlist: Option<Playlist>,
     pub config: Configuration,
 }
@@ -20,8 +20,8 @@ impl GrandMother {
         let seen_links = config.seen_links.iter().map(|x| x.as_str()).collect();
         let playlist = playlist.await?;
         let playlist_content = playlist.get_saved_or_download().await?;
-        let parser: Box<dyn M3u8PlayPath> =
-            Box::new(Parser::new(&playlist_content, &seen_links).await);
+        let parser: Box<dyn Parser> =
+            Box::new(OnlineParser::new(&playlist_content, &seen_links).await);
 
         Ok(Self {
             parser,
@@ -31,7 +31,7 @@ impl GrandMother {
     }
 
     pub fn new_offline(config: Configuration) -> Self {
-        let parser: Box<dyn M3u8PlayPath> = Box::new(OfflineParser::new(&config));
+        let parser: Box<dyn Parser> = Box::new(OfflineParser::new(&config));
         Self {
             parser,
             playlist: None,
@@ -69,7 +69,7 @@ impl GrandMother {
             .iter()
             .map(|x| x.link.as_str())
             .collect();
-        self.parser = Box::new(Parser::new(&content, &watched_links).await);
+        self.parser = Box::new(OnlineParser::new(&content, &watched_links).await);
 
         Ok(())
     }

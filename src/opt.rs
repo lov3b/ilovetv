@@ -5,8 +5,7 @@ use structopt::StructOpt;
 #[structopt(name = "ilovetv")]
 pub struct Opt {
     #[structopt(short, long, default_value = "ask")]
-    /// Choose whether to launch in offlinemode, onlinemode or wheter to ask during startup.
-    /// In offlinemode it's only possible to watch downloaded entries
+    /// Possible options: online, offline and ask
     pub mode: Mode,
 }
 

@@ -1,9 +1,4 @@
-use std::{
-    fs,
-    ops::{Deref, DerefMut},
-    path::PathBuf,
-    rc::Rc,
-};
+use std::{fs, ops::Deref, path::PathBuf, rc::Rc};
 
 use crate::{download_with_progress, downloader::DualWriter, MAX_TRIES};
 
@@ -79,10 +74,10 @@ impl Playlist {
             let url = self
                 .url
                 .as_ref()
-                .clone()
-                .ok_or_else(|| String::from("In offline mode"))?;
+                .ok_or_else(|| String::from("In offline mode"))?
+                .clone();
 
-            let downloaded = download_with_progress(url, None)
+            let downloaded = download_with_progress(&url, None)
                 .await
                 .and_then(DualWriter::get_string);
             if let Ok(content) = downloaded {
@@ -100,11 +95,5 @@ impl Deref for Playlist {
 
     fn deref(&self) -> &Self::Target {
         &self.content
-    }
-}
-
-impl DerefMut for Playlist {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.content
     }
 }

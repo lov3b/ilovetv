@@ -4,11 +4,11 @@ use serde::Serialize;
 
 use crate::{m3u8::M3u8, Configuration, GetM3u8, GetPlayPath, OfflineEntry};
 
-pub struct Parser {
+pub struct OnlineParser {
     m3u8_items: Vec<M3u8>,
 }
 
-impl Parser {
+impl OnlineParser {
     pub async fn new(m3u_content: &str, watched_links: &Vec<&str>) -> Self {
         Self {
             m3u8_items: Self::parse_m3u8(m3u_content, watched_links),
@@ -22,14 +22,6 @@ impl Parser {
             .filter(|item| item.name.to_lowercase().contains(&name) || item.tvg_id.contains(&name))
             .collect()
     }
-
-    /*
-     * I know that this is also frowned upon, but it is perfectly safe right here,
-     * even though the borrowchecker complains
-     */
-    // async fn refresh(&self) {
-    //     unsafe { get_mut_ref(&self.pla) }.forcefully_update().await;
-    // }
 
     pub async fn forcefully_update(&mut self, content: &str) {
         let seen_links: &Vec<&str> = &self
@@ -80,7 +72,7 @@ impl Parser {
     }
 }
 
-impl Deref for Parser {
+impl Deref for OnlineParser {
     type Target = Vec<M3u8>;
 
     fn deref(&self) -> &Self::Target {
@@ -88,42 +80,14 @@ impl Deref for Parser {
     }
 }
 
-impl GetM3u8 for Parser {
+impl GetM3u8 for OnlineParser {
     fn get_m3u8(&self) -> Vec<&M3u8> {
         self.m3u8_items.iter().collect()
     }
 }
 
-impl GetPlayPath for Parser {
+impl GetPlayPath for OnlineParser {
     fn get_path_to_play<'a>(&'a self, link: Rc<String>) -> Result<Rc<String>, String> {
         Ok(link.clone())
-    }
-}
-#[derive(Serialize)]
-pub struct OfflineParser {
-    m3u8_items: Rc<Vec<OfflineEntry>>,
-}
-impl OfflineParser {
-    pub fn new(config: &Configuration) -> Self {
-        Self {
-            m3u8_items: config.offlinefile_content.clone(),
-        }
-    }
-}
-
-impl GetPlayPath for OfflineParser {
-    fn get_path_to_play(&self, link: Rc<String>) -> Result<Rc<String>, String> {
-        for offline_entry in &*self.m3u8_items {
-            if *offline_entry.link == *link {
-                return Ok(offline_entry.path.clone());
-            }
-        }
-        Err("Not stored for offline use".to_owned())
-    }
-}
-
-impl GetM3u8 for OfflineParser {
-    fn get_m3u8(&self) -> Vec<&M3u8> {
-        self.m3u8_items.iter().map(|x| &**x).collect()
     }
 }
