@@ -1,5 +1,6 @@
 mod config;
 mod downloader;
+mod grandmother;
 mod m3u8;
 mod parser;
 mod playlist;
@@ -8,9 +9,10 @@ use std::io::{stdin, stdout, Stdin, StdoutLock, Write};
 
 pub use config::Configuration;
 pub use downloader::download_with_progress;
+pub use grandmother::GrandMother;
 pub use m3u8::{DataEntry, M3u8};
 pub use parser::Parser;
-pub use playlist::{GrandMother, Playlist};
+pub use playlist::Playlist;
 
 pub const JSON_CONFIG_FILENAME: &'static str = "config.json";
 pub const APP_IDENTIFIER: [&'static str; 3] = ["com", "billenius", "ilovetv"];
