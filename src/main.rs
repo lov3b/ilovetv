@@ -4,7 +4,8 @@ use std::rc::Rc;
 
 use colored::Colorize;
 use ilovetv::{
-    download_with_progress, get_mut_ref, Configuration, DataEntry, M3u8, Parser, Readline,
+    download_with_progress, get_mut_ref, Configuration, DataEntry, GrandMother, M3u8, Parser,
+    Readline,
 };
 
 #[tokio::main]
@@ -32,9 +33,10 @@ async fn main() {
     .iter()
     .for_each(|s| println!("{}", &s));
 
-    let config = Rc::new(Configuration::new().expect("Failed to write to configfile"));
-
-    let parser = Parser::new(config.clone()).await;
+    let gm = GrandMother::new(Configuration::new().expect("Failed to write to configfile"))
+        .await
+        .unwrap();
+    // let parser = Parser::new(config.clone()).await;
 
     let mut mpv_fs = false;
     let mut search_result: Option<Rc<Vec<&M3u8>>> = None;
@@ -55,7 +57,7 @@ async fn main() {
                 // Refresh playlist
                 "r" => {
                     search_result = None;
-                    refresh(&parser).await;
+                    gm.refresh_dirty().await;
                     continue;
                 }
                 // Toggle fullscreen for mpv
@@ -68,7 +70,7 @@ async fn main() {
                     continue;
                 }
                 "l" => {
-                    search = if let Some(s) = config.last_search.as_ref() {
+                    search = if let Some(s) = gm.config.last_search.as_ref() {
                         s
                     } else {
                         println!("There is no search saved from earlier");
@@ -76,19 +78,19 @@ async fn main() {
                     };
                 }
                 "c" => {
-                    config.update_last_search_ugly(None);
+                    gm.config.update_last_search_ugly(None);
                     continue;
                 }
                 _ => {}
             }
-            search_result = Some(Rc::new(parser.find(search)));
+            search_result = Some(Rc::new(gm.parser.find(search)));
 
             if search_result.as_ref().unwrap().is_empty() {
                 println!("Nothing found");
                 search_result = None;
                 continue;
             }
-            config.update_last_search_ugly(Some(search.to_owned()));
+            gm.config.update_last_search_ugly(Some(search.to_owned()));
         }
 
         // Let them choose which one to stream
@@ -114,7 +116,7 @@ async fn main() {
             "r" => {
                 println!("Refreshing local m3u8-file");
                 search_result = None;
-                refresh(&parser).await;
+                gm.refresh_dirty().await;
                 continue;
             }
             "f" => {
@@ -140,14 +142,14 @@ async fn main() {
                     ask_which_to_download(&mut readline, &search_result.as_ref().unwrap());
 
                 for to_download in download_selections.iter() {
-                    let path = config.data_dir.join(&to_download.name);
+                    let path = gm.config.data_dir.join(&to_download.name);
                     let path = path.to_string_lossy().to_string();
                     download_m3u8(to_download, Some(&path)).await;
                     let data_entry = DataEntry::new((*to_download).clone(), path);
-                    config.push_datafile_ugly(data_entry);
+                    gm.config.push_datafile_ugly(data_entry);
                 }
 
-                if let Err(e) = config.write_datafile() {
+                if let Err(e) = gm.config.write_datafile() {
                     println!(
                         "Failed to information about downloaded entries for offline use {:?}",
                         e
@@ -162,7 +164,7 @@ async fn main() {
             Ok(k) => {
                 let search_result = search_result.as_ref().unwrap();
                 stream(search_result[k - 1], mpv_fs);
-                parser.save_watched();
+                gm.save_watched();
             }
             Err(e) => println!("Have to be a valid number! {:?}", e),
         }
@@ -250,12 +252,4 @@ fn stream(m3u8item: &M3u8, launch_in_fullscreen: bool) {
         .args(args)
         .output()
         .expect("Could not listen for output");
-}
-
-/*
- * I know that this is also frowned upon, but it is perfectly safe right here,
- * even though the borrowchecker complains
- */
-async fn refresh(parser: &Parser) {
-    unsafe { get_mut_ref(parser) }.forcefully_update().await;
 }

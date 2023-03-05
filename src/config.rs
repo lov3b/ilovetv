@@ -1,8 +1,9 @@
 use std::{
     fs::{self, File},
     io::{self, BufReader},
-    ops::{Deref, DerefMut},
+    ops::Deref,
     path::{Path, PathBuf},
+    rc::Rc,
 };
 
 use directories::ProjectDirs;
@@ -10,20 +11,15 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 
 use crate::{
-    download_with_progress, downloader::DualWriter, get_mut_ref, m3u8::DataEntry, M3u8, Readline,
+    download_with_progress, get_mut_ref, m3u8::DataEntry, Readline, APP_IDENTIFIER,
+    JSON_CONFIG_FILENAME, STANDARD_OFFLINE_FILENAME, STANDARD_PLAYLIST_FILENAME,
+    STANDARD_SEEN_LINKS_FILENAME,
 };
-
-const JSON_CONFIG_FILENAME: &'static str = "config.json";
-const APP_IDENTIFIER: [&'static str; 3] = ["com", "billenius", "ilovetv"];
-const STANDARD_PLAYLIST_FILENAME: &'static str = "playlist.m3u8";
-const STANDARD_SEEN_LINKS_FILENAME: &'static str = "watched_links.json";
-const STANDARD_OFFLINE_FILENAME: &'static str = "ilovetv_offline.json";
-const MAX_TRIES: u8 = 4;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Conf {
     pub playlist_filename: String,
-    pub playlist_url: String,
+    pub playlist_url: Rc<String>,
     pub last_search: Option<String>,
     pub seen_links_filename: String,
 }
@@ -45,7 +41,7 @@ impl Conf {
         }
 
         // Get fresh config with url from user
-        let playlist_url = Self::user_setup();
+        let playlist_url = Self::user_setup().into();
 
         Ok(Self {
             playlist_filename: STANDARD_PLAYLIST_FILENAME.to_owned(),
@@ -83,7 +79,7 @@ impl Conf {
 
 pub struct Configuration {
     pub conf: Conf,
-    pub playlist_path: PathBuf,
+    pub playlist_path: Rc<PathBuf>,
     pub seen_links_path: PathBuf,
     pub seen_links: Vec<String>,
     config_file_path: PathBuf,
@@ -115,7 +111,7 @@ impl Configuration {
         )?;
 
         // Playlist
-        let playlist_path = cache_dir.join(&configuration.playlist_filename);
+        let playlist_path = cache_dir.join(&configuration.playlist_filename).into();
         let seen_links_path = cache_dir.join(&configuration.seen_links_filename);
         let seen_links = Self::get_watched(&seen_links_path).unwrap_or_default();
 
@@ -156,12 +152,6 @@ impl Configuration {
         serde_json::from_reader(reader).ok()
     }
 
-    async fn just_download(&self) -> Result<String, String> {
-        download_with_progress(&self.playlist_url, None)
-            .await?
-            .get_string()
-    }
-
     fn get_datafile_content(datafile: &PathBuf) -> Option<Vec<DataEntry>> {
         let reader = BufReader::new(File::open(datafile).ok()?);
         serde_json::from_reader(reader).ok()
@@ -173,97 +163,5 @@ impl Deref for Configuration {
 
     fn deref(&self) -> &Self::Target {
         &self.conf
-    }
-}
-
-struct Playlist {
-    pub entries: Vec<M3u8>,
-    path_to_playlist: PathBuf,
-}
-
-impl Playlist {
-    pub fn new(path_to_playlist: PathBuf) -> Self {
-        todo!()
-    }
-
-    pub fn write() -> Result<(), io::Error> {
-        todo!()
-    }
-
-    fn get_saved_playlist(path: &Path) -> Option<String> {
-        if !Self::should_update_playlist(path) {
-            return fs::read_to_string(path).ok();
-        }
-        None
-    }
-
-    fn should_update_playlist(path: &Path) -> bool {
-        fs::metadata(path)
-            .and_then(|metadata| {
-                Ok({
-                    let seconds = metadata.modified()?;
-                    seconds
-                        .elapsed()
-                        .expect("Failed to get systemtime")
-                        .as_secs()
-                        > 60 * 60 * 24 * 3
-                })
-            })
-            .map_or_else(
-                |_| {
-                    println!("Could not find playlist-file, Downloading a new one");
-                    false
-                },
-                |x| x,
-            )
-    }
-
-    pub async fn get_playlist(&self, url: &str, path: &Path) -> Result<String, String> {
-        let content = if let Some(content) = Self::get_saved_playlist(path) {
-            content
-        } else {
-            let downloaded = Self::download_playlist(url).await?;
-            if let Err(e) = fs::write(path, &downloaded) {
-                println!(
-                    "Failed to save downloaded playlist to file, {:?}, path: '{}'",
-                    e,
-                    path.as_os_str().to_str().unwrap()
-                );
-            }
-            downloaded
-        };
-
-        Ok(content)
-    }
-
-    pub async fn download_playlist(url: &str) -> Result<String, String> {
-        let mut counter: u8 = 0;
-        loop {
-            counter += 1;
-
-            let downloaded = download_with_progress(url, None)
-                .await
-                .and_then(DualWriter::get_string);
-            if let Ok(content) = downloaded {
-                break Ok(content);
-            } else if counter > MAX_TRIES {
-                break Err("Failed to download playlist".to_owned());
-            }
-            println!("Retrying {}/{}", counter + 1, MAX_TRIES);
-        }
-    }
-}
-
-impl Deref for Playlist {
-    type Target = Vec<M3u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.entries
-    }
-}
-
-impl DerefMut for Playlist {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.entries
     }
 }
