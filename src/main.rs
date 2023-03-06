@@ -170,6 +170,7 @@ async fn main() {
                 for to_download in download_selections.iter() {
                     download_m3u8(to_download, None).await;
                 }
+                continue;
             }
             // Save to offlinemode
             "o" => {
@@ -190,6 +191,7 @@ async fn main() {
                         e
                     )
                 }
+                continue;
             }
             "m" => {
                 let result = unsafe { get_mut_ref(&gm) }.promote_to_online().await;
