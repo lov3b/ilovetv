@@ -1,5 +1,5 @@
 use std::{
-    fmt,
+    error, fmt,
     fs::File,
     io::{self, Read, Write},
 };
@@ -30,8 +30,24 @@ impl DualWriter {
 
         Ok(())
     }
+}
 
-    pub fn get_string(self) -> Result<String, String> {
+impl TryFrom<Option<&str>> for DualWriter {
+    type Error = io::Error;
+
+    fn try_from(file_name: Option<&str>) -> Result<Self, Self::Error> {
+        Ok(if let Some(file_name) = file_name {
+            Self::File(File::create(&file_name)?)
+        } else {
+            Self::Buffer(Vec::<u8>::new())
+        })
+    }
+}
+
+impl TryInto<String> for DualWriter {
+    type Error = String;
+
+    fn try_into(self) -> Result<String, Self::Error> {
         Ok(match self {
             Self::Buffer(buffer) => {
                 String::from_utf8(buffer).or(Err("Failed to decode buffer".to_owned()))?
@@ -47,32 +63,16 @@ impl DualWriter {
             }
         })
     }
-
-    pub fn new(file_name: Option<&str>) -> Result<Self, io::Error> {
-        Ok(if let Some(file_name) = file_name {
-            Self::File(File::create(&file_name)?)
-        } else {
-            Self::Buffer(Vec::<u8>::new())
-        })
-    }
 }
 
 pub async fn download_with_progress(
     link: &str,
     file_name: Option<&str>,
-) -> Result<DualWriter, String> {
-    let mut dual_writer = DualWriter::new(file_name).or(Err("Failed to create file".to_owned()))?;
+) -> Result<DualWriter, Box<dyn error::Error>> {
+    let mut dual_writer: DualWriter = file_name.try_into()?;
 
-    let client = Client::builder()
-        .gzip(true)
-        .deflate(true)
-        .build()
-        .or(Err("Failed to create client".to_owned()))?;
-    let resp = client
-        .get(link)
-        .send()
-        .await
-        .or(Err("Failed to connect server".to_owned()))?;
+    let client = Client::builder().gzip(true).deflate(true).build()?;
+    let resp = client.get(link).send().await?;
     let content_length = if let Some(got_content_length) = resp.content_length() {
         got_content_length
     } else {
@@ -90,9 +90,7 @@ pub async fn download_with_progress(
     while let Some(item) = stream.next().await {
         let bytes = item.unwrap();
         downloaded = cmp::min(downloaded + (bytes.len() as u64), content_length);
-        dual_writer
-            .write(bytes)
-            .or(Err("Failed to write to file".to_owned()))?;
+        dual_writer.write(bytes)?;
 
         progress_bar.set_position(downloaded);
     }

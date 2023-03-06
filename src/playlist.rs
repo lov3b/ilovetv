@@ -1,6 +1,6 @@
 use std::{fs, ops::Deref, path::PathBuf, rc::Rc};
 
-use crate::{download_with_progress, downloader::DualWriter, MAX_TRIES};
+use crate::{download_with_progress, MAX_TRIES};
 
 pub struct Playlist {
     pub content: String,
@@ -79,8 +79,9 @@ impl Playlist {
 
             let downloaded = download_with_progress(&url, None)
                 .await
-                .and_then(DualWriter::get_string);
-            if let Ok(content) = downloaded {
+                .map(TryInto::try_into);
+
+            if let Ok(Ok(content)) = downloaded {
                 break Ok(content);
             } else if counter > MAX_TRIES {
                 break Err("Failed to download playlist".to_owned());
