@@ -1,6 +1,7 @@
 #[allow(unused_imports)]
 use crate::GetM3u8;
 use crate::{
+    get_mut_ref,
     parser::{Parser, WatchedFind},
     Configuration, OfflineParser, OnlineParser, Playlist, MAX_TRIES,
 };
@@ -47,8 +48,7 @@ impl GrandMother {
     }
 
     pub async fn refresh_dirty(&self) -> Result<(), Error> {
-        let ptr = self as *const Self as *mut Self;
-        unsafe { &mut *ptr }.refresh().await
+        unsafe { get_mut_ref(self) }.refresh().await
     }
 
     pub async fn refresh(&mut self) -> Result<(), Error> {
