@@ -1,13 +1,32 @@
-mod m3u8;
-mod parser;
-use std::io::{stdin, stdout, Stdin, StdoutLock, Write};
-
-pub use m3u8::M3u8;
-pub use parser::Parser;
 mod config;
-pub use config::Configuration;
 mod downloader;
+mod grandmother;
+mod m3u8;
+mod offlineparser;
+mod onlineparser;
+mod opt;
+pub mod parser;
+mod playlist;
+
+use std::{io::{stdin, stdout, Stdin, StdoutLock, Write}, rc::Rc};
+
+use async_recursion::async_recursion;
+pub use config::Configuration;
 pub use downloader::download_with_progress;
+pub use grandmother::GrandMother;
+pub use m3u8::{M3u8, OfflineEntry};
+pub use offlineparser::OfflineParser;
+pub use onlineparser::OnlineParser;
+pub use opt::{Mode, Opt};
+pub use parser::{GetM3u8, GetPlayPath, WatchedFind};
+pub use playlist::Playlist;
+
+pub const JSON_CONFIG_FILENAME: &'static str = "config.json";
+pub const APP_IDENTIFIER: [&'static str; 3] = ["com", "billenius", "ilovetv"];
+pub const STANDARD_PLAYLIST_FILENAME: &'static str = "playlist.m3u8";
+pub const STANDARD_SEEN_LINKS_FILENAME: &'static str = "watched_links.json";
+pub const STANDARD_OFFLINE_FILENAME: &'static str = "ilovetv_offline.json";
+pub const MAX_TRIES: u8 = 4;
 
 pub struct Readline<'a> {
     stdout: StdoutLock<'a>,
@@ -39,4 +58,32 @@ impl<'a> Readline<'a> {
 pub unsafe fn get_mut_ref<T>(reference: &T) -> &mut T {
     let ptr = reference as *const T as *mut T;
     &mut *ptr
+}
+
+#[async_recursion(?Send)]
+pub async fn get_gm(
+    mode: Mode,
+    readline: &mut Readline<'_>,
+    config: Rc<Configuration>,
+) -> Result<GrandMother, String> {
+    match mode {
+        Mode::Online => GrandMother::new_online(config).await,
+        Mode::Offline => Ok(GrandMother::new_offline(config)),
+        Mode::Ask => loop {
+            let input = readline
+                .input("Online/Offline mode? [1/2] ")
+                .trim()
+                .parse::<u8>();
+            if let Ok(num) = input {
+                if num == 1 {
+                    return get_gm(Mode::Online, readline, config).await;
+                } else if num == 2 {
+                    return get_gm(Mode::Offline, readline, config).await;
+                }
+                println!("Has to be either 1 (Onine) or 2 (Offline)");
+            } else {
+                println!("Has to be a number");
+            }
+        },
+    }
 }

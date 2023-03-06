@@ -3,10 +3,19 @@ use std::process::Command;
 use std::rc::Rc;
 
 use colored::Colorize;
-use ilovetv::{download_with_progress, get_mut_ref, Configuration, M3u8, Parser, Readline};
+use structopt::StructOpt;
+
+use ilovetv::{
+    download_with_progress, get_gm, get_mut_ref, Configuration, M3u8, OfflineEntry, Opt, Readline,
+    WatchedFind,
+};
+#[allow(unused_imports)]
+use ilovetv::{GetM3u8, GetPlayPath, OfflineParser};
 
 #[tokio::main]
 async fn main() {
+    let opt = Opt::from_args();
+
     // Greet the user
     [
         format!(
@@ -18,6 +27,11 @@ async fn main() {
         format!(" {} is to refresh the local iptvfile.", "r".bold()),
         format!(" {} is to quit and save watched fields", "q".bold()),
         format!(" {} is to download fields", "d".bold()),
+        format!(
+            " {} is to make entries availibe for offline use later on in the program",
+            "o".bold()
+        ),
+        format!(" {} is to switch to online mode", "m".bold()),
         format!(" {} is to perform a new search", "s".bold()),
         format!(" {} is to select all", "a".bold()),
         format!(" {} is to toggtle fullscreen for mpv", "f".bold()),
@@ -30,19 +44,27 @@ async fn main() {
     .iter()
     .for_each(|s| println!("{}", &s));
 
-    let config = Rc::new(Configuration::new().expect("Failed to write to configfile"));
-
-    let parser = Parser::new(config.clone()).await;
+    // let gm = GrandMother::new(Configuration::new().expect("Failed to write to configfile"))
+    //     .await
+    //     .unwrap();
+    // let parser = Parser::new(config.clone()).await;
 
     let mut mpv_fs = false;
     let mut search_result: Option<Rc<Vec<&M3u8>>> = None;
     let mut readline = Readline::new();
+    let gm = get_gm(
+        opt.mode,
+        &mut readline,
+        Rc::new(Configuration::new().expect("Failed to write to configfile")),
+    )
+    .await
+    .expect("Failed to retrive online playlist");
 
     loop {
         // Dont't perform a search if user has just watched, instead present the previous search
         if search_result.is_none() {
             let search = readline
-                .input("Search by name [ r/q/f/l ]: ")
+                .input("Search by name [ r/q/f/l/m ]: ")
                 .to_lowercase();
             let mut search = search.trim();
 
@@ -53,7 +75,12 @@ async fn main() {
                 // Refresh playlist
                 "r" => {
                     search_result = None;
-                    refresh(&parser).await;
+                    if let Err(e) = gm.refresh_dirty().await {
+                        println!(
+                            "Cannot refresh. This is probably due to offlinemode {:?}",
+                            e
+                        );
+                    };
                     continue;
                 }
                 // Toggle fullscreen for mpv
@@ -66,7 +93,7 @@ async fn main() {
                     continue;
                 }
                 "l" => {
-                    search = if let Some(s) = config.last_search.as_ref() {
+                    search = if let Some(s) = gm.config.last_search.as_ref() {
                         s
                     } else {
                         println!("There is no search saved from earlier");
@@ -74,19 +101,26 @@ async fn main() {
                     };
                 }
                 "c" => {
-                    config.update_last_search_ugly(None);
+                    gm.config.update_last_search_ugly(None);
+                    continue;
+                }
+                "m" => {
+                    let result = unsafe { get_mut_ref(&gm) }.promote_to_online().await;
+                    if let Err(e) = result {
+                        println!("Failed to switch to onlinemode {:?}", e);
+                    }
                     continue;
                 }
                 _ => {}
             }
-            search_result = Some(Rc::new(parser.find(search)));
+            search_result = Some(Rc::new(gm.parser.find(search)));
 
             if search_result.as_ref().unwrap().is_empty() {
                 println!("Nothing found");
                 search_result = None;
                 continue;
             }
-            config.update_last_search_ugly(Some(search.to_owned()));
+            gm.config.update_last_search_ugly(Some(search.to_owned()));
         }
 
         // Let them choose which one to stream
@@ -95,7 +129,7 @@ async fn main() {
         }
 
         let user_wish = readline
-            .input("Which one do you wish to stream? [ q/f/s/r/d ]: ")
+            .input("Which one do you wish to stream? [ q/f/s/r/d/o/m ]: ")
             .to_lowercase();
         let user_wish = user_wish.trim();
 
@@ -112,7 +146,12 @@ async fn main() {
             "r" => {
                 println!("Refreshing local m3u8-file");
                 search_result = None;
-                refresh(&parser).await;
+                if let Err(e) = gm.refresh_dirty().await {
+                    println!(
+                        "Cannot refresh. This is probably due to offlinemode {:?}",
+                        e
+                    );
+                };
                 continue;
             }
             "f" => {
@@ -125,9 +164,41 @@ async fn main() {
             }
             // Downloadmode
             "d" => {
-                let to_download =
+                let download_selections =
                     ask_which_to_download(&mut readline, &search_result.as_ref().unwrap());
-                download_m3u8(&to_download).await;
+
+                for to_download in download_selections.iter() {
+                    download_m3u8(to_download, None).await;
+                }
+                continue;
+            }
+            // Save to offlinemode
+            "o" => {
+                let download_selections =
+                    ask_which_to_download(&mut readline, &search_result.as_ref().unwrap());
+
+                for to_download in download_selections.iter() {
+                    let path = gm.config.data_dir.join(&to_download.name);
+                    let path = Rc::new(path.to_string_lossy().to_string());
+                    download_m3u8(to_download, Some(&path)).await;
+                    let data_entry = OfflineEntry::new((*to_download).clone(), path);
+                    gm.config.push_offlinefile_ugly(data_entry);
+                }
+
+                if let Err(e) = gm.config.write_datafile() {
+                    println!(
+                        "Failed to information about downloaded entries for offline use {:?}",
+                        e
+                    )
+                }
+                continue;
+            }
+            "m" => {
+                let result = unsafe { get_mut_ref(&gm) }.promote_to_online().await;
+                if let Err(e) = result {
+                    println!("Failed to switch to onlinemode {:?}", e);
+                }
+                continue;
             }
             _ => {}
         }
@@ -136,8 +207,16 @@ async fn main() {
         match choosen {
             Ok(k) => {
                 let search_result = search_result.as_ref().unwrap();
-                stream(search_result[k - 1], mpv_fs);
-                parser.save_watched();
+                let to_play = search_result[k - 1];
+                let path_link = if let Ok(link) = gm.parser.get_path_to_play(to_play.link.clone()) {
+                    link
+                } else {
+                    println!("Not possible to refresh playlist while in offlinemode");
+                    continue;
+                };
+
+                stream(to_play, &*path_link, mpv_fs);
+                gm.save_watched();
             }
             Err(e) => println!("Have to be a valid number! {:?}", e),
         }
@@ -186,20 +265,24 @@ fn ask_which_to_download<'a>(
     )
 }
 
-async fn download_m3u8(files_to_download: &Vec<&M3u8>) {
-    for m3u8 in files_to_download.iter() {
-        let file_ending_place = m3u8.link.rfind(".").unwrap();
-        let potential_file_ending = &m3u8.link[file_ending_place..];
-        let file_ending = if potential_file_ending.len() > 6 {
-            ".mkv"
-        } else {
-            potential_file_ending
-        };
-        let file_name = format!("{}{}", m3u8.name, file_ending);
-        println!("Downloading {}", &file_name);
-        if let Err(e) = download_with_progress(&m3u8.link, Some(&file_name)).await {
-            eprintln!("Failed to download {}, {:?}", &file_name, e);
-        }
+async fn download_m3u8(file_to_download: &M3u8, path: Option<&str>) {
+    let file_ending_place = file_to_download.link.rfind(".").unwrap();
+    let potential_file_ending = &file_to_download.link[file_ending_place..];
+    let file_ending = if potential_file_ending.len() > 6 {
+        ".mkv"
+    } else {
+        potential_file_ending
+    };
+    let file_name = format!("{}{}", file_to_download.name, file_ending);
+    println!("Downloading {}", &file_name);
+    let path = if let Some(path) = path {
+        format!("{}{}", path, file_ending)
+    } else {
+        file_name.clone()
+    };
+
+    if let Err(e) = download_with_progress(&file_to_download.link, Some(&path)).await {
+        eprintln!("Failed to download {}, {:?}", &file_name, e);
     }
 }
 
@@ -208,10 +291,10 @@ async fn download_m3u8(files_to_download: &Vec<&M3u8>) {
  * in this context and also the most efficient way.
  * With other words, it's BLAZINGLY FAST
  */
-fn stream(m3u8item: &M3u8, launch_in_fullscreen: bool) {
+fn stream(m3u8item: &M3u8, link: &String, launch_in_fullscreen: bool) {
     let mut m3u8item = unsafe { get_mut_ref(m3u8item) };
     m3u8item.watched = true;
-    let mut args: Vec<&str> = vec![&m3u8item.link];
+    let mut args: Vec<&str> = vec![link];
     if launch_in_fullscreen {
         args.push("--fs");
     }
@@ -220,12 +303,4 @@ fn stream(m3u8item: &M3u8, launch_in_fullscreen: bool) {
         .args(args)
         .output()
         .expect("Could not listen for output");
-}
-
-/*
- * I know that this is also frowned upon, but it is perfectly safe right here,
- * even though the borrowchecker complains
- */
-async fn refresh(parser: &Parser) {
-    unsafe { get_mut_ref(parser) }.forcefully_update().await;
 }
