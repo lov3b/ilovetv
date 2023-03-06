@@ -33,21 +33,20 @@ impl Playlist {
         fs::metadata(&*self.path_to_playlist)
             .and_then(|metadata| {
                 Ok({
-                    let seconds = metadata.modified()?;
-                    seconds
+                    metadata
+                        .modified()?
                         .elapsed()
-                        .expect("Failed to get systemtime")
-                        .as_secs()
-                        > 60 * 60 * 24 * 3
+                        .map(|x| x.as_secs() > 60 * 60 * 24 * 3)
+                        .unwrap_or_else(|_| {
+                            println!("Could not get systemtime, trying to download new file");
+                            true
+                        })
                 })
             })
-            .map_or_else(
-                |_| {
-                    println!("Could not find playlist-file, Downloading a new one");
-                    false
-                },
-                |x| x,
-            )
+            .unwrap_or_else(|_| {
+                println!("Could not find a saved playlist, Downloading a new one");
+                false
+            })
     }
 
     pub async fn get_saved_or_download(&self) -> Result<String, Error> {
@@ -68,7 +67,7 @@ impl Playlist {
         Ok(content)
     }
 
-    pub async fn download(&self) -> Result<String, Error> {
+    pub async fn download(&self) -> Result<String, String> {
         let mut counter: u8 = 0;
         loop {
             counter += 1;
