@@ -2,6 +2,8 @@ use std::{fs, ops::Deref, path::PathBuf, rc::Rc};
 
 use crate::{download_with_progress, MAX_TRIES};
 
+type Error = String;
+
 pub struct Playlist {
     pub content: String,
     path_to_playlist: Rc<PathBuf>,
@@ -48,7 +50,7 @@ impl Playlist {
             )
     }
 
-    pub async fn get_saved_or_download(&self) -> Result<String, String> {
+    pub async fn get_saved_or_download(&self) -> Result<String, Error> {
         let content = if let Some(content) = self.get_saved() {
             content
         } else {
@@ -66,7 +68,7 @@ impl Playlist {
         Ok(content)
     }
 
-    pub async fn download(&self) -> Result<String, String> {
+    pub async fn download(&self) -> Result<String, Error> {
         let mut counter: u8 = 0;
         loop {
             counter += 1;
