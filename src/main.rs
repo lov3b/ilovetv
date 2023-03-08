@@ -44,11 +44,6 @@ async fn main() {
     .iter()
     .for_each(|s| println!("{}", &s));
 
-    // let gm = GrandMother::new(Configuration::new().expect("Failed to write to configfile"))
-    //     .await
-    //     .unwrap();
-    // let parser = Parser::new(config.clone()).await;
-
     let mut mpv_fs = false;
     let mut search_result: Option<Rc<Vec<&M3u8>>> = None;
     let mut readline = Readline::new();
