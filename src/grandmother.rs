@@ -31,6 +31,11 @@ impl GrandMother {
         })
     }
 
+    pub fn demote_to_offline(&mut self) {
+        let offline_mother = GrandMother::new_offline(self.config.clone());
+        (self.parser, self.playlist) = (offline_mother.parser, offline_mother.playlist);
+    }
+
     pub async fn promote_to_online(&mut self) -> Result<(), Error> {
         let online_mother = GrandMother::new_online(self.config.clone()).await?;
         (self.parser, self.playlist) = (online_mother.parser, online_mother.playlist);

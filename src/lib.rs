@@ -8,7 +8,10 @@ mod opt;
 pub mod parser;
 mod playlist;
 
-use std::{io::{stdin, stdout, Stdin, StdoutLock, Write}, rc::Rc};
+use std::{
+    io::{stdin, stdout, Stdin, StdoutLock, Write},
+    rc::Rc,
+};
 
 use async_recursion::async_recursion;
 pub use config::Configuration;
@@ -65,10 +68,10 @@ pub async fn get_gm(
     mode: Mode,
     readline: &mut Readline<'_>,
     config: Rc<Configuration>,
-) -> Result<GrandMother, String> {
+) -> Result<(GrandMother, bool), String> {
     match mode {
-        Mode::Online => GrandMother::new_online(config).await,
-        Mode::Offline => Ok(GrandMother::new_offline(config)),
+        Mode::Online => Ok((GrandMother::new_online(config).await?, true)),
+        Mode::Offline => Ok((GrandMother::new_offline(config), false)),
         Mode::Ask => loop {
             let input = readline
                 .input("Online/Offline mode? [1/2] ")

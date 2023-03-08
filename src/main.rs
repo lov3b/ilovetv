@@ -31,7 +31,7 @@ async fn main() {
             " {} is to make entries availibe for offline use later on in the program",
             "o".bold()
         ),
-        format!(" {} is to switch to online mode", "m".bold()),
+        format!(" {} is to switch between modes (toggle)", "m".bold()),
         format!(" {} is to perform a new search", "s".bold()),
         format!(" {} is to select all", "a".bold()),
         format!(" {} is to toggtle fullscreen for mpv", "f".bold()),
@@ -47,7 +47,7 @@ async fn main() {
     let mut mpv_fs = false;
     let mut search_result: Option<Rc<Vec<&M3u8>>> = None;
     let mut readline = Readline::new();
-    let gm = get_gm(
+    let (gm, mut in_online) = get_gm(
         opt.mode,
         &mut readline,
         Rc::new(Configuration::new().expect("Failed to write to configfile")),
@@ -100,10 +100,19 @@ async fn main() {
                     continue;
                 }
                 "m" => {
-                    let result = unsafe { get_mut_ref(&gm) }.promote_to_online().await;
-                    if let Err(e) = result {
-                        println!("Failed to switch to onlinemode {:?}", e);
+                    if in_online {
+                        unsafe { get_mut_ref(&gm) }.demote_to_offline();
+                        println!("Switched to offline mode");
+                    } else {
+                        let result = unsafe { get_mut_ref(&gm) }.promote_to_online().await;
+                        if let Err(e) = result {
+                            println!("Failed to switch to onlinemode {:?}", e);
+                        } else {
+                            println!("Switched to online mode");
+                            continue;
+                        }
                     }
+                    in_online = !in_online;
                     continue;
                 }
                 _ => {}
