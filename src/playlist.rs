@@ -67,7 +67,7 @@ impl Playlist {
         Ok(content)
     }
 
-    pub async fn download(&self) -> Result<String, String> {
+    pub async fn download(&self) -> Result<String, Error> {
         let mut counter: u8 = 0;
         loop {
             counter += 1;
