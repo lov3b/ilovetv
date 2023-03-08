@@ -178,7 +178,22 @@ async fn main() {
                     ask_which_to_download(&mut readline, &search_result.as_ref().unwrap());
 
                 for to_download in download_selections.iter() {
-                    let path = gm.config.data_dir.join(&to_download.name);
+                    let file_ending = to_download
+                        .name
+                        .rfind(".")
+                        .map(|dot_idx| {
+                            if dot_idx < 6 {
+                                &to_download.name[dot_idx..]
+                            } else {
+                                ".mkv"
+                            }
+                        })
+                        .unwrap_or_else(|| ".mkv");
+
+                    let path = gm
+                        .config
+                        .data_dir
+                        .join(format!("{}{}", &to_download.name, file_ending));
                     let path = Rc::new(path.to_string_lossy().to_string());
                     download_m3u8(to_download, Some(&path)).await;
                     let data_entry = OfflineEntry::new((*to_download).clone(), path);
