@@ -70,19 +70,15 @@ impl GrandMother {
             println!("Retrying {}/{}", counter, MAX_TRIES);
         };
 
-        let watched_links = self
-            .parser
-            .get_watched()
-            .iter()
-            .map(|x| x.link.as_str())
-            .collect();
+        let watched_links = self.parser.get_watched_links();
+        let watched_links = watched_links.iter().map(|x| x.as_str()).collect();
         self.parser = Box::new(OnlineParser::new(&content, &watched_links).await);
 
         Ok(())
     }
 
     pub fn save_watched(&self) {
-        let watched_items = self.parser.get_watched();
+        let watched_items = self.parser.get_watched_links();
 
         let resp = fs::write(
             &self.config.seen_links_path,

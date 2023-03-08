@@ -214,7 +214,6 @@ async fn main() {
                     println!("Not possible to refresh playlist while in offlinemode");
                     continue;
                 };
-
                 stream(to_play, &*path_link, mpv_fs);
                 gm.save_watched();
             }

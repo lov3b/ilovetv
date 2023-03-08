@@ -8,7 +8,7 @@ pub trait GetM3u8 {
 
 pub trait WatchedFind {
     fn find(&self, name: &str) -> Vec<&M3u8>;
-    fn get_watched(&self) -> Vec<&M3u8>;
+    fn get_watched_links(&self) -> Vec<Rc<String>>;
 }
 
 impl<T: ?Sized + GetM3u8> WatchedFind for T {
@@ -20,8 +20,12 @@ impl<T: ?Sized + GetM3u8> WatchedFind for T {
             .collect()
     }
 
-    fn get_watched(&self) -> Vec<&M3u8> {
-        self.get_m3u8().into_iter().filter(|x| x.watched).collect()
+    fn get_watched_links(&self) -> Vec<Rc<String>> {
+        self.get_m3u8()
+            .into_iter()
+            .filter(|x| x.watched)
+            .map(|x| x.link.clone())
+            .collect()
     }
 }
 pub trait GetPlayPath {
